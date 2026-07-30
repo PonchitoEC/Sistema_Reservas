@@ -1,0 +1,416 @@
+{% extends 'PlantillaPrincipal.html' %}
+{% load static %}
+
+{% block titulo %}Dashboard — Conexión Inmobiliaria{% endblock %}
+
+{% block estilos %}
+<style>
+  .dash-header { background:linear-gradient(135deg,var(--primary) 0%,#1a4fbb 100%); padding:32px 0 24px; margin-bottom:32px; }
+  .dash-header h1 { color:#fff; font-size:26px; font-weight:700; margin:0; }
+  .dash-header p  { color:rgba(255,255,255,.75); margin:4px 0 0; font-size:14px; }
+
+  /* KPI cards */
+  .kpi-card { border:none; border-radius:14px; box-shadow:0 3px 16px rgba(0,0,0,.08); padding:24px; display:flex; align-items:center; gap:18px; }
+  .kpi-icon { width:56px; height:56px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:26px; flex-shrink:0; }
+  .kpi-value { font-size:32px; font-weight:700; line-height:1; }
+  .kpi-label { font-size:13px; color:#6b7280; margin-top:3px; }
+
+  /* Acceso rápido */
+  .quick-card { border:none; border-radius:14px; box-shadow:0 3px 16px rgba(0,0,0,.08); padding:24px; text-align:center; transition:transform .2s,box-shadow .2s; text-decoration:none; display:block; color:inherit; }
+  .quick-card:hover { transform:translateY(-4px); box-shadow:0 8px 28px rgba(0,0,0,.13); color:inherit; }
+  .quick-card .q-icon { width:52px; height:52px; border-radius:12px; margin:0 auto 12px; display:flex; align-items:center; justify-content:center; font-size:24px; }
+  .quick-card h6 { font-weight:700; margin-bottom:4px; font-size:15px; }
+  .quick-card p  { font-size:13px; color:#6b7280; margin:0; }
+
+  /* Últimas visitas */
+  .section-card { background:#fff; border-radius:14px; box-shadow:0 3px 16px rgba(0,0,0,.08); overflow:hidden; }
+  .section-card .sc-header { padding:18px 24px; border-bottom:1px solid #f3f4f6; display:flex; justify-content:space-between; align-items:center; }
+  .section-card .sc-header h5 { font-weight:700; margin:0; font-size:16px; }
+  table thead th { background:var(--primary); color:#fff; font-size:12px; font-weight:600; padding:12px 16px; border:none; text-transform:uppercase; letter-spacing:.04em; }
+  table tbody td { padding:12px 16px; font-size:14px; vertical-align:middle; border-bottom:1px solid #f3f4f6; }
+  table tbody tr:last-child td { border-bottom:none; }
+  table tbody tr:hover td { background:#f8faff; }
+  .badge-estado { font-size:11px; padding:3px 9px; border-radius:20px; font-weight:600; }
+  .badge-pendiente  { background:#e0f2fe; color:#0369a1; }
+  .badge-confirmada { background:#dcfce7; color:#16a34a; }
+  .badge-realizada  { background:#f3f4f6; color:#374151; }
+  .badge-cancelada  { background:#fee2e2; color:#dc2626; }
+  .badge-no_asistio { background:#fef9c3; color:#ca8a04; }
+
+  /* Gráficos */
+  .chart-card { background:#fff; border-radius:14px; box-shadow:0 3px 16px rgba(0,0,0,.08); padding:22px 24px; }
+  .chart-card .chart-title { font-size:14px; font-weight:700; color:#1e293b; margin-bottom:2px; }
+  .chart-card .chart-sub   { font-size:12px; color:#6b7280; margin-bottom:16px; }
+</style>
+{% endblock %}
+
+{% block contenido %}
+
+<!-- Header -->
+<div class="dash-header">
+  <div class="container">
+    <div class="d-flex justify-content-between align-items-center">
+      <div>
+        <h1>Bienvenido, {{ user.get_full_name|default:user.username }} 👋</h1>
+        <p>
+          <span style="background:rgba(255,255,255,.2);padding:3px 12px;border-radius:20px;font-size:13px;text-transform:capitalize;">
+            {{ rol }}
+          </span>
+          &nbsp;·&nbsp; {% now "l, d \d\e F \d\e Y" %}
+        </p>
+      </div>
+      <a href="{% url 'logout' %}" class="btn navbar-auth-btn navbar-auth-outline"
+        style="border-color:rgba(255,255,255,.6);">
+        <i class="fa fa-right-to-bracket me-1"></i>Salir
+      </a>
+      <button class="btn-guia ms-2" onclick="iniciarTourDashboard()">
+        <i class="fa fa-graduation-cap"></i> Guía
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="container pb-5">
+
+  <!-- ── KPIs ────────────────────────────────────── -->
+  <div class="row g-3 mb-4" id="dash-kpis">
+    <div class="col-lg-3 col-md-6">
+      <div class="kpi-card bg-white">
+          <div class="kpi-icon" style="background:rgba(37,99,235,.1);">
+          <i class="fa fa-home" style="color:var(--primary);"></i>
+        </div>
+        <div>
+          <div class="kpi-value" style="color:var(--primary);">{{ total_propiedades }}</div>
+          <div class="kpi-label">Propiedades</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-3 col-md-6">
+      <div class="kpi-card bg-white">
+          <div class="kpi-icon" style="background:#dcfce7;">
+          <i class="fa fa-calendar" style="color:#16a34a;"></i>
+        </div>
+        <div>
+          <div class="kpi-value" style="color:#16a34a;">{{ visitas_pendientes }}</div>
+          <div class="kpi-label">Visitas pendientes</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-3 col-md-6">
+      <div class="kpi-card bg-white">
+          <div class="kpi-icon" style="background:#fef9c3;">
+          <i class="fa fa-users" style="color:#ca8a04;"></i>
+        </div>
+        <div>
+          <div class="kpi-value" style="color:#ca8a04;">{{ total_compradores }}</div>
+          <div class="kpi-label">Compradores activos</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-3 col-md-6">
+      <div class="kpi-card bg-white">
+          <div class="kpi-icon" style="background:#f0fdf4;">
+          <i class="fa fa-file-lines" style="color:#16a34a;"></i>
+        </div>
+        <div>
+          <div class="kpi-value" style="color:#16a34a;">{{ contratos_firmados }}</div>
+          <div class="kpi-label">Contratos firmados</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Accesos rápidos ─────────────────────────── -->
+  <div class="row g-3 mb-4" id="dash-accesos">
+
+    <div class="col-lg-3 col-md-6">
+      <a href="{% url 'propiedades_lista' %}" class="quick-card">
+        <div class="q-icon" style="background:rgba(37,99,235,.1);">
+          <i class="fa fa-home" style="color:var(--primary);"></i>
+        </div>
+        <h6>Propiedades</h6>
+        <p>Ver catálogo</p>
+      </a>
+    </div>
+
+    {% if rol == 'administrador' or rol == 'agente' %}
+    <div class="col-lg-3 col-md-6">
+      <a href="{% url 'compradores_lista' %}" class="quick-card">
+        <div class="q-icon" style="background:#fef9c3;">
+          <i class="fa fa-user" style="color:#ca8a04;"></i>
+        </div>
+        <h6>Compradores</h6>
+        <p>Gestionar clientes</p>
+      </a>
+    </div>
+
+    <div class="col-lg-3 col-md-6">
+      <a href="{% url 'contratos_lista' %}" class="quick-card">
+        <div class="q-icon" style="background:#dcfce7;">
+          <i class="fa fa-file-lines" style="color:#16a34a;"></i>
+        </div>
+        <h6>Contratos</h6>
+        <p>Ver negociaciones</p>
+      </a>
+    </div>
+    {% endif %}
+
+    {% if rol == 'administrador' %}
+    <div class="col-lg-3 col-md-6">
+      <a href="{% url 'agentes_lista' %}" class="quick-card">
+        <div class="q-icon" style="background:rgba(37,99,235,.1);">
+          <i class="fa fa-users" style="color:var(--primary);"></i>
+        </div>
+        <h6>Agentes</h6>
+        <p>Gestionar equipo</p>
+      </a>
+    </div>
+    <div class="col-lg-3 col-md-6">
+      <a href="{% url 'usuarios_lista' %}" class="quick-card">
+        <div class="q-icon" style="background:rgba(37,99,235,.1);">
+          <i class="fa fa-shield" style="color:#1d4ed8;"></i>
+        </div>
+        <h6>Usuarios y Roles</h6>
+        <p>Gestionar accesos</p>
+      </a>
+    </div>
+    {% endif %}
+
+    {# Calendario y Ruta del día: accesibles para todos los roles (compradores ven modo solo lectura) #}
+    <div class="col-lg-3 col-md-6">
+      <a href="{% url 'calendario' %}" class="quick-card">
+        <div class="q-icon" style="background:#dbeafe;">
+          <i class="fa fa-calendar" style="color:#2563eb;"></i>
+        </div>
+        <h6>Calendario</h6>
+        <p>{% if rol == 'comprador' %}Ver mis visitas{% else %}Agendar visitas{% endif %}</p>
+      </a>
+    </div>
+    <div class="col-lg-3 col-md-6">
+      <a href="{% url 'ruta_del_dia' %}" class="quick-card">
+        <div class="q-icon" style="background:#fef9c3;">
+          <i class="fa fa-map" style="color:#ca8a04;"></i>
+        </div>
+        <h6>Ruta del día</h6>
+        <p>{% if rol == 'comprador' %}Ver mis visitas del día{% else %}Organizar visitas{% endif %}</p>
+      </a>
+    </div>
+
+    {% if rol == 'administrador' or rol == 'agente' %}
+    <div class="col-lg-3 col-md-6">
+      <a href="{% url 'reportes' %}" class="quick-card">
+        <div class="q-icon" style="background:#f0fdf4;">
+          <i class="fa fa-chart-bar" style="color:#16a34a;"></i>
+        </div>
+        <h6>Reportes</h6>
+        <p>Efectividad y comisiones</p>
+      </a>
+    </div>
+    {% endif %}
+
+  </div>
+
+  <!-- ── Gráficos Chart.js ──────────────────────── -->
+  {% if rol == 'administrador' or rol == 'agente' %}
+  <div class="row g-4 mb-4" id="dash-graficos">
+
+    <!-- Donut: visitas por estado -->
+    <div class="col-lg-4 col-md-6">
+      <div class="chart-card h-100">
+      <div class="chart-title"><i class="fa fa-chart-pie me-1" style="color:var(--primary);"></i>Visitas por estado</div>
+        <div class="chart-sub">Distribución del estado actual de visitas</div>
+        <canvas id="graficaEstadoVisitas" height="220"></canvas>
+      </div>
+    </div>
+
+    <!-- Barras horizontales: visitas para cerrar por agente -->
+    <div class="col-lg-4 col-md-6">
+      <div class="chart-card h-100">
+      <div class="chart-title"><i class="fa fa-chart-bar me-1" style="color:#ca8a04;"></i>Visitas para cerrar una venta</div>
+        <div class="chart-sub">Promedio de visitas realizadas por contrato firmado</div>
+        <canvas id="graficaCierre" height="220"></canvas>
+      </div>
+    </div>
+
+    <!-- Línea: tendencia mensual -->
+    <div class="col-lg-4 col-md-12">
+        <div class="chart-card h-100">
+        <div class="chart-title"><i class="fa fa-chart-line me-1" style="color:#16a34a;"></i>Tendencia mensual</div>
+        <div class="chart-sub">Visitas y contratos por mes</div>
+        <canvas id="graficaMensual" height="220"></canvas>
+      </div>
+    </div>
+
+  </div>
+  {% endif %}
+
+  <!-- ── Últimas visitas ─────────────────────────── -->
+  {% if ultimas_visitas %}
+  <div class="section-card mb-4" id="dash-visitas">
+    <div class="sc-header">
+      <h5><i class="fa fa-calendar me-2" style="color:var(--primary);"></i>Próximas Visitas</h5>
+    </div>
+    <div class="table-responsive">
+      <table class="table mb-0">
+        <thead>
+          <tr>
+            <th>Propiedad</th>
+            <th>Comprador</th>
+            <th>Agente</th>
+            <th>Fecha / Hora</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for v in ultimas_visitas %}
+          <tr>
+            <td class="fw-semibold">{{ v.propiedad.titulo }}</td>
+            <td>{{ v.comprador.user.get_full_name }}</td>
+            <td>{% if v.agente %}{{ v.agente.nombre_completo }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+            <td>{{ v.fecha_hora|date:"d/m/Y H:i" }}</td>
+            <td><span class="badge-estado badge-{{ v.estado }}">{{ v.get_estado_display }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if rol == 'administrador' or rol == 'agente' %}
+<script>
+$(function() {
+  // ── Chart.js: donut visitas por estado ───────────────
+  fetch('{% url "reportes_api" %}?tipo=resumen')
+    .then(r => r.json())
+    .then(d => {
+      new Chart(document.getElementById('graficaEstadoVisitas'), {
+        type: 'doughnut',
+        data: {
+          labels:   ['Pendientes', 'Realizadas', 'Canceladas/Otros'],
+          datasets: [{
+            data: [ d.visitas - d.visitas_realizadas, d.visitas_realizadas, 0 ],
+            backgroundColor: ['#3b82f6','#22c55e','#ef4444'],
+            borderWidth: 2, borderColor: '#fff',
+          }],
+        },
+        options: {
+          cutout: '65%',
+          plugins: { legend: { position:'bottom', labels:{ font:{size:12}, padding:12 } } },
+        },
+      });
+    });
+
+  // ── Chart.js: visitas para cerrar ────────────────────
+  fetch('{% url "reportes_api" %}?tipo=visitas_cierre')
+    .then(r => r.json())
+    .then(d => {
+      const rows = d.data || [];
+      if (!rows.length) return;
+      const COLORES = ['#2563eb','#16a34a','#ca8a04','#dc2626','#7c3aed'];
+      new Chart(document.getElementById('graficaCierre'), {
+        type: 'bar',
+        data: {
+          labels: rows.map(r => r.agente.split(' ')[0]),
+          datasets: [{ label:'Visitas / cierre', data: rows.map(r => r.visitas_por_cierre),
+            backgroundColor: rows.map((_,i) => COLORES[i%COLORES.length]), borderRadius:6 }],
+        },
+        options: {
+          indexAxis:'y', plugins:{ legend:{display:false} },
+          scales: { x:{beginAtZero:true,ticks:{font:{size:11}}}, y:{ticks:{font:{size:11}}} },
+        },
+      });
+    });
+
+  // ── Chart.js: tendencia mensual ──────────────────────
+  fetch('{% url "reportes_api" %}?tipo=mensual')
+    .then(r => r.json())
+    .then(d => {
+      if (!d.etiquetas || !d.etiquetas.length) return;
+      new Chart(document.getElementById('graficaMensual'), {
+        type: 'line',
+        data: {
+          labels: d.etiquetas.map(e => {
+            const [y,m] = e.split('-');
+            return new Date(y,m-1).toLocaleDateString('es-EC',{month:'short',year:'2-digit'});
+          }),
+          datasets: [
+            { label:'Visitas',    data:d.visitas,   borderColor:'#2563eb', backgroundColor:'rgba(37,99,235,.1)',  tension:.4, fill:true, pointRadius:4 },
+            { label:'Contratos',  data:d.contratos, borderColor:'#16a34a', backgroundColor:'rgba(22,163,74,.1)', tension:.4, fill:true, pointRadius:4 },
+          ],
+        },
+        options: { plugins:{ legend:{position:'top',labels:{font:{size:11}}} }, scales:{ y:{beginAtZero:true}, x:{} } },
+      });
+    });
+});
+</script>
+{% endif %}
+
+<script>
+function iniciarTourDashboard() {
+  const { driver } = window.driver.js;
+  const pasos = [
+    {
+      popover: {
+        title: '🏠 Bienvenido al Dashboard',
+        description: 'Este es tu panel de control principal. Aquí puedes ver un resumen de toda la actividad del sistema inmobiliario.',
+        side: 'over', align: 'center',
+      }
+    },
+    {
+      element: '#dash-kpis',
+      popover: {
+        title: '📊 Indicadores clave (KPIs)',
+        description: 'Estos 4 números muestran en tiempo real: propiedades activas, visitas pendientes, compradores registrados y contratos firmados.',
+        side: 'bottom', align: 'start',
+      }
+    },
+    {
+      element: '#dash-accesos',
+      popover: {
+        title: '⚡ Accesos rápidos',
+        description: 'Haz clic en cualquier tarjeta para ir directamente a Propiedades, Compradores, Contratos, Calendario, Ruta del día o Reportes.',
+        side: 'top', align: 'start',
+      }
+    },
+    {% if rol == 'administrador' or rol == 'agente' %}
+    {
+      element: '#dash-graficos',
+      popover: {
+        title: '📈 Gráficos de rendimiento',
+        description: 'Visualiza el estado de visitas, cuántas visitas necesita cada agente para cerrar una venta y la tendencia mensual de actividad.',
+        side: 'top', align: 'start',
+      }
+    },
+    {% endif %}
+    {% if ultimas_visitas %}
+    {
+      element: '#dash-visitas',
+      popover: {
+        title: '📅 Próximas visitas',
+        description: 'Lista de visitas pendientes y confirmadas ordenadas por fecha. Haz clic en Calendario para gestionarlas.',
+        side: 'top', align: 'start',
+      }
+    },
+    {% endif %}
+    {
+      popover: {
+        title: '✅ ¡Listo para empezar!',
+        description: 'Ya conoces el dashboard. Usa el navbar superior para navegar entre secciones o los accesos rápidos de aquí.',
+        side: 'over', align: 'center',
+      }
+    },
+  ];
+
+  driver({ showProgress:true, animate:true, smoothScroll:true, allowClose:true,
+    stagePadding:8, stageRadius:10,
+    nextBtnText:'Siguiente →', prevBtnText:'← Anterior', doneBtnText:'¡Entendido! ✓',
+    steps: pasos,
+  }).drive();
+}
+</script>
+{% endblock %}

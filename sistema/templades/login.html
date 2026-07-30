@@ -1,0 +1,215 @@
+{% extends 'PlantillaPrincipal.html' %}
+{% load static %}
+
+{% block titulo %}Iniciar Sesión — Conexión Inmobiliaria{% endblock %}
+
+{% block estilos %}
+<style>
+  .auth-section {
+    min-height: calc(100vh - 85px);
+    display: flex;
+    align-items: center;
+    background: linear-gradient(135deg, #f5f7fa 0%, #e8edf5 100%);
+    padding: 60px 0;
+  }
+  .auth-card {
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.10);
+    padding: 48px 40px;
+    max-width: 460px;
+    width: 100%;
+    margin: 0 auto;
+  }
+  .auth-card .auth-logo {
+    text-align: center;
+    margin-bottom: 28px;
+  }
+  .auth-card .auth-logo img {
+    height: 70px;
+    width: auto;
+  }
+  .auth-card h2 {
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--dark);
+    text-align: center;
+    margin-bottom: 6px;
+  }
+  .auth-card .auth-subtitle {
+    text-align: center;
+    color: var(--gray-2);
+    font-size: 14px;
+    margin-bottom: 32px;
+  }
+  .auth-card .form-label {
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--dark-3);
+    margin-bottom: 6px;
+  }
+  .auth-card .form-control {
+    border-radius: 8px;
+    border: 1.5px solid #e0e0e0;
+    padding: 11px 16px;
+    font-size: 15px;
+    transition: border-color 0.2s;
+  }
+  .auth-card .form-control:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(var(--primary-rgb, 37,99,235), 0.10);
+  }
+  .auth-card .input-group-text {
+    border-radius: 0 8px 8px 0;
+    border: 1.5px solid #e0e0e0;
+    border-left: none;
+    background: #f8f9fa;
+    cursor: pointer;
+    color: var(--gray-2);
+  }
+  .auth-card .input-group .form-control {
+    border-radius: 8px 0 0 8px;
+  }
+  .auth-card .btn-auth {
+    width: 100%;
+    padding: 13px;
+    font-size: 16px;
+    font-weight: 600;
+    border-radius: 8px;
+    text-transform: none;
+    letter-spacing: normal;
+    margin-top: 8px;
+  }
+  .auth-card .auth-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 24px 0;
+    color: var(--gray-3);
+    font-size: 13px;
+  }
+  .auth-card .auth-divider::before,
+  .auth-card .auth-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #e0e0e0;
+  }
+  .auth-card .auth-footer {
+    text-align: center;
+    margin-top: 24px;
+    font-size: 14px;
+    color: var(--gray-2);
+  }
+  .auth-card .auth-footer a {
+    color: var(--primary);
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .auth-card .auth-footer a:hover {
+    text-decoration: underline;
+  }
+  .alert {
+    border-radius: 8px;
+    font-size: 14px;
+    padding: 10px 16px;
+    margin-bottom: 16px;
+  }
+</style>
+{% endblock %}
+
+{% block contenido %}
+<section class="auth-section">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-12">
+        <div class="auth-card">
+
+          <!-- Logo -->
+          <div class="auth-logo">
+            <a href="{% url 'inicio' %}">
+              <img src="{% static 'assets/images/logo.png' %}" alt="Conexión Inmobiliaria" />
+            </a>
+          </div>
+
+          <h2>Bienvenido de vuelta</h2>
+          <p class="auth-subtitle">Ingresa tus credenciales para continuar</p>
+
+          <!-- Formulario -->
+          <form method="POST" action="{% url 'login' %}" id="formLogin" novalidate>
+            {% csrf_token %}
+
+            <div class="mb-3">
+              <label for="username" class="form-label">Usuario</label>
+              <input
+                type="text"
+                class="form-control"
+                id="username"
+                name="username"
+                placeholder="Tu nombre de usuario"
+                value="{{ request.POST.username }}"
+                required
+                autofocus
+              />
+            </div>
+
+            <div class="mb-3">
+              <label for="password" class="form-label">Contraseña</label>
+              <div class="input-group">
+                <input
+                  type="password"
+                  class="form-control"
+                  id="password"
+                  name="password"
+                  placeholder="Tu contraseña"
+                  required
+                />
+                <span class="input-group-text" onclick="togglePassword('password', this)" title="Mostrar/Ocultar">
+                  <i class="lni lni-eye"></i>
+                </span>
+              </div>
+            </div>
+
+            <button type="submit" class="btn primary-btn btn-auth">
+              <i class="lni lni-enter me-2"></i> Iniciar Sesión
+            </button>
+          </form>
+
+          <div class="auth-divider">o</div>
+
+          <div class="auth-footer">
+            ¿No tienes cuenta?
+            <a href="{% url 'registro' %}">Regístrate aquí</a>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  $(function() {
+    $('#formLogin').validate({
+      rules: {
+        username: { required: true },
+        password: { required: true, minlength: 4 },
+      },
+    });
+  });
+
+  function togglePassword(fieldId, btn) {
+    const input = document.getElementById(fieldId);
+    const icon  = btn.querySelector('i');
+    if (input.type === 'password') {
+      input.type = 'text';
+      icon.classList.replace('lni-eye', 'lni-eye-slash');
+    } else {
+      input.type = 'password';
+      icon.classList.replace('lni-eye-slash', 'lni-eye');
+    }
+  }
+</script>
+{% endblock %}

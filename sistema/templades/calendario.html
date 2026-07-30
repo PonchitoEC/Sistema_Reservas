@@ -1,0 +1,794 @@
+{% extends 'PlantillaPrincipal.html' %}
+{% load static %}
+
+{% block titulo %}Calendario de Visitas — Conexión Inmobiliaria{% endblock %}
+
+{% block estilos %}
+<!-- FullCalendar CSS (CDN) -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css" />
+<style>
+  /* ── Encabezado ─────────────────────────────────── */
+  .page-header {
+    background: linear-gradient(135deg, var(--primary) 0%, #1a4fbb 100%);
+    padding: 28px 0 20px;
+    margin-bottom: 28px;
+  }
+  .page-header h1 { color: #fff; font-size: 24px; font-weight: 700; margin: 0; }
+  .page-header p  { color: rgba(255,255,255,.75); margin: 4px 0 0; font-size: 14px; }
+
+  /* ── Layout ─────────────────────────────────────── */
+  .cal-wrapper { display: flex; gap: 24px; align-items: flex-start; }
+  .cal-sidebar {
+    width: 260px; flex-shrink: 0;
+    background: #fff; border-radius: 14px;
+    box-shadow: 0 3px 16px rgba(0,0,0,.08); padding: 20px;
+  }
+  .cal-main {
+    flex: 1; background: #fff; border-radius: 14px;
+    box-shadow: 0 3px 16px rgba(0,0,0,.08); padding: 20px;
+  }
+
+  /* ── Sidebar ─────────────────────────────────────── */
+  .sidebar-section { margin-bottom: 24px; }
+  .sidebar-section h6 {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .06em; color: var(--primary);
+    border-bottom: 2px solid var(--primary); padding-bottom: 6px; margin-bottom: 12px;
+  }
+  .legend-item {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px; color: #374151; margin-bottom: 7px;
+  }
+  .legend-dot {
+    width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0;
+  }
+  .btn-nueva-visita {
+    width: 100%; text-transform: none; letter-spacing: normal;
+    font-size: 14px; padding: 10px; border-radius: 8px;
+  }
+  .mini-stat {
+    background: #f8faff; border-radius: 8px; padding: 10px 14px;
+    margin-bottom: 8px; display: flex; justify-content: space-between;
+    align-items: center; font-size: 13px;
+  }
+  .mini-stat .val { font-weight: 700; color: var(--primary); font-size: 18px; }
+
+  /* ── FullCalendar overrides ──────────────────────── */
+  .fc .fc-toolbar-title { font-size: 17px !important; font-weight: 700; }
+  .fc .fc-button {
+    background: var(--primary) !important; border-color: var(--primary) !important;
+    text-transform: none !important; letter-spacing: normal !important;
+    font-size: 13px !important; border-radius: 6px !important;
+  }
+  .fc .fc-button:hover   { background: #1a4fbb !important; border-color: #1a4fbb !important; }
+  .fc .fc-button-active  { background: #1a4fbb !important; border-color: #1a4fbb !important; }
+  .fc-event { border-radius: 5px !important; font-size: 12px !important; cursor: pointer; }
+  .fc-daygrid-event { padding: 2px 4px !important; }
+  .fc-timegrid-event .fc-event-title { font-size: 12px; }
+  .fc-day-today { background: rgba(37,99,235,.05) !important; }
+
+  /* ── Modal ───────────────────────────────────────── */
+  .modal-header-custom {
+    background: linear-gradient(135deg, var(--primary), #1a4fbb);
+    color: #fff; border-radius: 12px 12px 0 0; padding: 18px 24px;
+  }
+  .modal-header-custom .btn-close { filter: invert(1); }
+  .modal-body { padding: 24px; }
+  .modal-content { border: none; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,.18); }
+  .form-label { font-weight: 600; font-size: 13px; color: #374151; margin-bottom: 5px; }
+  .form-control, .form-select {
+    border-radius: 8px; border: 1.5px solid #e0e0e0;
+    padding: 9px 14px; font-size: 14px; transition: border-color .2s;
+  }
+  .form-control:focus, .form-select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(37,99,235,.1);
+  }
+  .btn-modal-save {
+    text-transform: none; letter-spacing: normal;
+    padding: 10px 28px; border-radius: 8px; font-size: 14px; font-weight: 600;
+  }
+  .btn-modal-del {
+    text-transform: none; letter-spacing: normal;
+    padding: 10px 20px; border-radius: 8px; font-size: 14px;
+    border: 1.5px solid #ef4444; color: #ef4444; background: transparent;
+  }
+  .btn-modal-del:hover { background: #ef4444; color: #fff; }
+  .estado-badge {
+    display: inline-block; font-size: 12px; padding: 4px 12px;
+    border-radius: 20px; font-weight: 600;
+  }
+
+  @media (max-width: 768px) {
+    .cal-wrapper { flex-direction: column; }
+    .cal-sidebar  { width: 100%; }
+  }
+</style>
+{% endblock %}
+
+{% block contenido %}
+
+<!-- Encabezado -->
+<div class="page-header">
+  <div class="container">
+    <div class="d-flex justify-content-between align-items-center">
+      <div>
+        <h1><i class="lni lni-calendar me-2"></i>Calendario de Visitas</h1>
+        <p>Agenda y gestiona las visitas a inmuebles</p>
+      </div>
+      <a href="{% url 'dashboard' %}" style="color:rgba(255,255,255,.75);font-size:22px;">
+        <i class="lni lni-arrow-left"></i>
+      </a>
+      <button class="btn-guia" onclick="iniciarTour()">
+        <i class="lni lni-graduation"></i> Guía
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="container pb-5">
+  <div class="cal-wrapper">
+
+    <!-- ── Sidebar ─────────────────────────────────── -->
+    <aside class="cal-sidebar">
+
+      {% if rol != 'comprador' %}
+      <button class="btn primary-btn btn-nueva-visita mb-4" onclick="abrirModalNuevo()">
+        <i class="lni lni-plus me-2"></i>Nueva Visita
+      </button>
+      {% else %}
+      <div class="alert alert-info py-2 px-3 mb-4" style="font-size:13px;border-radius:8px;">
+        <i class="lni lni-information me-1"></i>Solo puedes ver las visitas agendadas para ti.
+      </div>
+      {% endif %}
+
+      <!-- Estadísticas rápidas -->
+      <div class="sidebar-section">
+        <h6>Resumen</h6>
+        <div class="mini-stat">
+          <span>Pendientes</span>
+          <span class="val" id="cntPendiente">0</span>
+        </div>
+        <div class="mini-stat">
+          <span>Confirmadas</span>
+          <span class="val" style="color:#22c55e;" id="cntConfirmada">0</span>
+        </div>
+        <div class="mini-stat">
+          <span>Realizadas</span>
+          <span class="val" style="color:#6b7280;" id="cntRealizada">0</span>
+        </div>
+      </div>
+
+      <!-- Leyenda de colores -->
+      <div class="sidebar-section">
+        <h6>Estados</h6>
+        <div class="legend-item"><div class="legend-dot" style="background:#3b82f6;"></div>Pendiente</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#22c55e;"></div>Confirmada</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#6b7280;"></div>Realizada</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ef4444;"></div>Cancelada</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#f97316;"></div>No asistió</div>
+      </div>
+
+      <!-- Filtro por agente (solo admin) -->
+      {% if rol == 'administrador' %}
+      <div class="sidebar-section">
+        <h6>Filtrar por agente</h6>
+        <select id="filtroAgente" class="form-select" style="font-size:13px;" onchange="refrescarCalendario()">
+          <option value="">Todos los agentes</option>
+          {% for a in agentes %}
+            <option value="{{ a.pk }}">{{ a.nombre_completo }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+
+    </aside>
+
+    <!-- ── Calendario ─────────────────────────────── -->
+    <div class="cal-main">
+      <div id="calendario"></div>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════
+     MODAL CREAR / EDITAR VISITA
+══════════════════════════════════════════════════════ -->
+<div class="modal fade" id="modalVisita" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+
+      <div class="modal-header-custom d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 fw-bold" id="modalTitulo">
+          <i class="lni lni-calendar me-2"></i>Nueva Visita
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+        <input type="hidden" id="visitaId">
+
+        <div class="row g-3">
+
+          <!-- Propiedad -->
+          <div class="col-md-12" id="campoFPropiedad">
+            <label class="form-label">Propiedad <span class="text-danger">*</span></label>
+            <select id="fPropiedad" class="form-select" required>
+              <option value="">Selecciona una propiedad...</option>
+              {% for p in propiedades %}
+                <option value="{{ p.pk }}">{{ p.titulo }} — {{ p.ciudad }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Comprador -->
+          <div class="col-md-6" id="campoFComprador">
+            <label class="form-label">Comprador <span class="text-danger">*</span></label>
+            <select id="fComprador" class="form-select" required>
+              <option value="">Selecciona...</option>
+              {% for c in compradores %}
+                <option value="{{ c.pk }}">{{ c.user.get_full_name }} — {{ c.cedula }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Agente -->
+          <div class="col-md-6" id="campoFAgente">
+            <label class="form-label">Agente</label>
+            <select id="fAgente" class="form-select">
+              <option value="">Sin agente</option>
+              {% for a in agentes %}
+                <option value="{{ a.pk }}">{{ a.nombre_completo }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Fecha y hora -->
+          <div class="col-md-6" id="campoFFechaHora">
+            <label class="form-label">Fecha y Hora <span class="text-danger">*</span></label>
+            <input type="datetime-local" id="fFechaHora" class="form-control" required>
+          </div>
+
+          <!-- Duración -->
+          <div class="col-md-3" id="campoFDuracion">
+            <label class="form-label">Duración (min)</label>
+            <input type="number" id="fDuracion" class="form-control" value="30" min="15" step="15">
+          </div>
+
+          <!-- Orden en ruta -->
+          <div class="col-md-3" id="campoFOrden">
+            <label class="form-label">Orden en ruta</label>
+            <input type="number" id="fOrden" class="form-control" value="1" min="1">
+          </div>
+
+          <!-- Estado -->
+          <div class="col-md-6" id="campoFEstado">
+            <label class="form-label">Estado</label>
+            <select id="fEstado" class="form-select">
+              {% for val, label in estado_choices %}
+                <option value="{{ val }}">{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Notas -->
+          <div class="col-md-12" id="campoFNotas">
+            <label class="form-label">Notas</label>
+            <textarea id="fNotas" class="form-control" rows="2"
+              placeholder="Observaciones sobre la visita..."></textarea>
+          </div>
+
+        </div><!-- /row -->
+      </div><!-- /modal-body -->
+
+      <div class="modal-footer border-0 px-4 pb-4 pt-0 d-flex justify-content-between">
+        <div class="d-flex gap-2">
+          <button type="button" class="btn-modal-del d-none" id="btnEliminar" onclick="eliminarVisita()">
+            <i class="lni lni-trash me-1"></i>Eliminar
+          </button>
+          <button type="button" id="btnTourFormVisita"
+            style="background:transparent;border:1.5px solid rgba(37,99,235,.35);border-radius:8px;
+                   color:#2563eb;font-size:13px;padding:8px 16px;cursor:pointer;text-transform:none;letter-spacing:normal;"
+            onclick="iniciarTourFormVisita()">
+            <i class="lni lni-graduation me-1"></i>Guía del formulario
+          </button>
+        </div>
+        <div class="d-flex gap-2 ms-auto">
+          <button type="button" class="btn btn-sm"
+            style="border:1.5px solid #e0e0e0;border-radius:8px;text-transform:none;letter-spacing:normal;padding:9px 20px;"
+            data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn primary-btn btn-modal-save" id="btnGuardarVisita" onclick="guardarVisita()">
+            <i class="lni lni-save me-1"></i>Guardar
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+
+{% block scripts %}
+<!-- FullCalendar JS (CDN) -->
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/locales/es.global.min.js"></script>
+
+<script>
+  const CSRF        = '{{ csrf_token }}';
+  const API_URL     = '{% url "visitas_api" %}';
+  const CREAR_URL   = '{% url "visita_crear" %}';
+  const ROL_USUARIO = '{{ rol }}';  // 'administrador' | 'agente' | 'comprador'
+  const ES_SOLO_LECTURA = ROL_USUARIO === 'comprador';
+  const modalBS     = new bootstrap.Modal(document.getElementById('modalVisita'));
+  let   calendar;
+
+  // ── Inicializar FullCalendar ───────────────────────
+  document.addEventListener('DOMContentLoaded', function () {
+    const el = document.getElementById('calendario');
+
+    calendar = new FullCalendar.Calendar(el, {
+      locale:          'es',
+      initialView:     'dayGridMonth',
+      headerToolbar: {
+        left:   'prev,next today',
+        center: 'title',
+        right:  'dayGridMonth,timeGridWeek,timeGridDay,listWeek',
+      },
+      buttonText: {
+        today:    'Hoy',
+        month:    'Mes',
+        week:     'Semana',
+        day:      'Día',
+        list:     'Lista',
+      },
+      editable:        !ES_SOLO_LECTURA,   // compradores no pueden arrastrar eventos
+      droppable:       !ES_SOLO_LECTURA,
+      selectable:      !ES_SOLO_LECTURA,   // compradores no pueden crear desde clic en día
+      selectMirror:    !ES_SOLO_LECTURA,
+      dayMaxEvents:    true,
+      nowIndicator:    true,
+      height:          'auto',
+
+      // Fuente de eventos: nuestra API
+      events: function (info, successCb, failureCb) {
+        const agente = document.getElementById('filtroAgente')?.value || '';
+        const params = new URLSearchParams({
+          start:  info.startStr,
+          end:    info.endStr,
+          agente: agente,
+        });
+        fetch(`${API_URL}?${params}`)
+          .then(r => r.json())
+          .then(data => { actualizarContadores(data); successCb(data); })
+          .catch(failureCb);
+      },
+
+      // Click en día vacío → abrir modal con fecha prellenada
+      select: function (info) {
+        abrirModalNuevo(info.startStr);
+        calendar.unselect();
+      },
+
+      // Click en evento → abrir modal de edición (solo admin/agente) o detalle (comprador)
+      eventClick: function (info) {
+        if (ES_SOLO_LECTURA) {
+          abrirModalDetalle(info.event);
+        } else {
+          abrirModalEditar(info.event);
+        }
+      },
+
+      // Arrastrar evento → actualizar fecha (solo admin/agente)
+      eventDrop: function (info) {
+        if (ES_SOLO_LECTURA) { info.revert(); return; }
+        moverVisita(info.event.id, info.event.startStr, info.revert);
+      },
+
+      // Resize evento → actualizar duración (solo admin/agente)
+      eventResize: function (info) {
+        if (ES_SOLO_LECTURA) { info.revert(); return; }
+        const mins = Math.round(
+          (info.event.end - info.event.start) / 60000
+        );
+        actualizarDuracion(info.event.id, mins, info.revert);
+      },
+    });
+
+    calendar.render();
+  });
+
+  // ── Refrescar cuando cambia filtro de agente ──────
+  function refrescarCalendario() {
+    calendar.refetchEvents();
+  }
+
+  // ── Contadores del sidebar ────────────────────────
+  function actualizarContadores(eventos) {
+    const cnt = { pendiente: 0, confirmada: 0, realizada: 0 };
+    eventos.forEach(e => {
+      const est = e.extendedProps?.estado;
+      if (cnt[est] !== undefined) cnt[est]++;
+    });
+    ['pendiente','confirmada','realizada'].forEach(k => {
+      const el = document.getElementById('cnt' + k.charAt(0).toUpperCase() + k.slice(1));
+      if (el) el.textContent = cnt[k];
+    });
+  }
+
+  // ── Abrir modal DETALLE (solo lectura para compradores) ──
+  function abrirModalDetalle(event) {
+    limpiarModal();
+    const p = event.extendedProps;
+
+    document.getElementById('modalTitulo').innerHTML =
+      '<i class="lni lni-eye me-2"></i>Detalle de Visita';
+    document.getElementById('visitaId').value = event.id;
+
+    // Pre-cargar campos pero deshabilitarlos
+    document.getElementById('fPropiedad').value = p.propiedad || '';
+    document.getElementById('fComprador').value = p.comprador || '';
+    document.getElementById('fAgente').value    = p.agente    || '';
+    document.getElementById('fEstado').value    = p.estado    || 'pendiente';
+    document.getElementById('fDuracion').value  = p.duracion_min || 30;
+    document.getElementById('fOrden').value     = p.orden_ruta   || 1;
+    document.getElementById('fNotas').value     = p.notas        || '';
+
+    const dt  = new Date(event.start);
+    const pad = n => String(n).padStart(2,'0');
+    document.getElementById('fFechaHora').value =
+      `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+
+    // Deshabilitar todos los campos de edición
+    ['fPropiedad','fComprador','fAgente','fFechaHora','fDuracion','fOrden','fEstado','fNotas']
+      .forEach(id => document.getElementById(id).setAttribute('disabled', true));
+
+    // Ocultar botones de acción
+    document.getElementById('btnEliminar').classList.add('d-none');
+    document.getElementById('btnGuardarVisita').classList.add('d-none');
+    document.getElementById('btnTourFormVisita').classList.add('d-none');
+
+    modalBS.show();
+  }
+
+  // ── Abrir modal NUEVO ─────────────────────────────
+  function abrirModalNuevo(fechaStr = '') {
+    if (ES_SOLO_LECTURA) return;  // seguridad extra en JS
+    limpiarModal();
+    document.getElementById('modalTitulo').innerHTML =
+      '<i class="lni lni-calendar me-2"></i>Nueva Visita';
+    document.getElementById('btnEliminar').classList.add('d-none');
+
+    // Bloquear selección de fechas/horas pasadas
+    const ahora   = new Date();
+    const pad     = n => String(n).padStart(2, '0');
+    const minDT   = `${ahora.getFullYear()}-${pad(ahora.getMonth()+1)}-${pad(ahora.getDate())}T${pad(ahora.getHours())}:${pad(ahora.getMinutes())}`;
+    document.getElementById('fFechaHora').min = minDT;
+
+    if (fechaStr) {
+      // Convertir a formato datetime-local (yyyy-MM-ddTHH:mm)
+      const dt = fechaStr.length === 10 ? fechaStr + 'T09:00' : fechaStr.slice(0, 16);
+      // Si la fecha clickeada es hoy o futura, usarla; si es pasada, dejar vacío
+      document.getElementById('fFechaHora').value = dt >= minDT.slice(0, 10) ? dt : '';
+    }
+    modalBS.show();
+  }
+
+  // ── Abrir modal EDITAR ────────────────────────────
+  function abrirModalEditar(event) {
+    limpiarModal();
+    const p = event.extendedProps;
+    document.getElementById('modalTitulo').innerHTML =
+      '<i class="lni lni-pencil me-2"></i>Editar Visita';
+    document.getElementById('visitaId').value       = event.id;
+    document.getElementById('btnEliminar').classList.remove('d-none');
+
+    document.getElementById('fPropiedad').value =
+      p.propiedad || '';
+    document.getElementById('fComprador').value =
+      p.comprador || '';
+    document.getElementById('fAgente').value    =
+      p.agente    || '';
+    document.getElementById('fEstado').value    =
+      p.estado    || 'pendiente';
+    document.getElementById('fDuracion').value  =
+      p.duracion_min || 30;
+    document.getElementById('fOrden').value     =
+      p.orden_ruta   || 1;
+    document.getElementById('fNotas').value     =
+      p.notas        || '';
+
+    // Formatear fecha al input datetime-local
+    const dt = new Date(event.start);
+    const pad = n => String(n).padStart(2,'0');
+    document.getElementById('fFechaHora').value =
+      `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+
+    modalBS.show();
+  }
+
+  // ── Limpiar modal ─────────────────────────────────
+  function limpiarModal() {
+    ['visitaId','fFechaHora','fNotas'].forEach(id =>
+      document.getElementById(id).value = '');
+    ['fPropiedad','fComprador','fAgente','fEstado'].forEach(id =>
+      document.getElementById(id).selectedIndex = 0);
+    document.getElementById('fDuracion').value = 30;
+    document.getElementById('fOrden').value    = 1;
+    // Re-habilitar campos y botones (por si viene de modal detalle)
+    ['fPropiedad','fComprador','fAgente','fFechaHora','fDuracion','fOrden','fEstado','fNotas']
+      .forEach(id => document.getElementById(id).removeAttribute('disabled'));
+    document.getElementById('btnGuardarVisita').classList.remove('d-none');
+    document.getElementById('btnTourFormVisita').classList.remove('d-none');
+  }
+
+  // ── Guardar (crear o editar) ──────────────────────
+  async function guardarVisita() {
+    const id        = document.getElementById('visitaId').value;
+    const propiedad = document.getElementById('fPropiedad').value;
+    const comprador = document.getElementById('fComprador').value;
+    const fechaHora = document.getElementById('fFechaHora').value;
+
+    if (!propiedad || !comprador || !fechaHora) {
+      Swal.fire({ icon: 'warning', title: 'Campos requeridos', text: 'Propiedad, comprador y fecha son obligatorios.', confirmButtonColor: '#2563eb' });
+      return;
+    }
+
+    // Validar que al CREAR no se ingrese una fecha/hora pasada
+    if (!id) {
+      const seleccionada = new Date(fechaHora);
+      const ahora        = new Date();
+      if (seleccionada < ahora) {
+        Swal.fire({
+          icon:             'error',
+          title:            'Fecha no válida',
+          text:             'No puedes agendar una visita en una fecha u hora pasada. Selecciona una fecha y hora futura.',
+          confirmButtonColor: '#2563eb',
+        });
+        document.getElementById('fFechaHora').focus();
+        return;
+      }
+    }
+
+    const payload = {
+      propiedad:   parseInt(propiedad),
+      comprador:   parseInt(comprador),
+      agente:      document.getElementById('fAgente').value || null,
+      fecha_hora:  fechaHora,
+      duracion_min: parseInt(document.getElementById('fDuracion').value) || 30,
+      orden_ruta:   parseInt(document.getElementById('fOrden').value) || 1,
+      estado:       document.getElementById('fEstado').value,
+      notas:        document.getElementById('fNotas').value,
+    };
+
+    const url    = id ? `/visitas/${id}/editar/` : CREAR_URL;
+    const method = id ? 'PUT' : 'POST';
+
+    const resp = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+      body: JSON.stringify(payload),
+    });
+    const data = await resp.json();
+
+    if (data.ok) {
+      modalBS.hide();
+      calendar.refetchEvents();
+    } else {
+      alert('Error: ' + (data.error || 'No se pudo guardar.'));
+    }
+  }
+
+  // ── Eliminar ──────────────────────────────────────
+  async function eliminarVisita() {
+    const id = document.getElementById('visitaId').value;
+    if (!id || !confirm('¿Eliminar esta visita?')) return;
+
+    const resp = await fetch(`/visitas/${id}/eliminar/`, {
+      method:  'DELETE',
+      headers: { 'X-CSRFToken': CSRF },
+    });
+    const data = await resp.json();
+
+    if (data.ok) {
+      modalBS.hide();
+      calendar.refetchEvents();
+    } else {
+      alert('Error al eliminar: ' + data.error);
+    }
+  }
+
+  // ── Mover evento (drag & drop) ────────────────────
+  async function moverVisita(id, nuevaFecha, revert) {
+    const resp = await fetch(`/visitas/${id}/mover/`, {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+      body: JSON.stringify({ fecha_hora: nuevaFecha }),
+    });
+    const data = await resp.json();
+    if (!data.ok) {
+      alert('No se pudo mover la visita.');
+      revert();
+    }
+  }
+
+  // ── Actualizar duración (resize) ──────────────────
+  async function actualizarDuracion(id, mins, revert) {
+    // Obtener el evento y recalcular
+    const evento = calendar.getEventById(id);
+    if (!evento) return;
+    const payload = {
+      propiedad:    evento.extendedProps.propiedad,
+      comprador:    evento.extendedProps.comprador,
+      agente:       evento.extendedProps.agente,
+      fecha_hora:   evento.start.toISOString(),
+      duracion_min: mins,
+      orden_ruta:   evento.extendedProps.orden_ruta,
+      estado:       evento.extendedProps.estado,
+      notas:        evento.extendedProps.notas,
+    };
+    const resp = await fetch(`/visitas/${id}/editar/`, {
+      method:  'PUT',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+      body: JSON.stringify(payload),
+    });
+    const data = await resp.json();
+    if (!data.ok) { revert(); }
+  }
+</script>
+
+<script>
+function iniciarTour() {
+  const { driver } = window.driver.js;
+  driver({
+    showProgress: true, animate: true, smoothScroll: true, allowClose: true,
+    stagePadding: 8, stageRadius: 10,
+    nextBtnText: 'Siguiente →', prevBtnText: '← Anterior', doneBtnText: '¡Entendido! ✓',
+    steps: [
+      { popover: { title: '📅 Calendario de Visitas', description: 'Aquí puedes ver, crear y gestionar todas las visitas a inmuebles. Los eventos se muestran con colores según su estado.', side: 'over', align: 'center' } },
+      { element: '.cal-sidebar', popover: { title: '📊 Panel lateral', description: 'Muestra contadores de visitas pendientes, confirmadas y realizadas. También tiene la leyenda de colores y el filtro por agente (solo para administradores).', side: 'right', align: 'start' } },
+      { element: '.btn-nueva-visita', popover: { title: '➕ Nueva visita', description: 'Crea una nueva visita seleccionando la propiedad, comprador, agente, fecha y hora. También puedes hacer clic directamente en un día del calendario.', side: 'bottom', align: 'start' } },
+      { element: '.cal-main', popover: { title: '🗓️ Calendario interactivo', description: 'Navega entre mes, semana, día y lista. Haz clic en un evento para editarlo. Arrastra los eventos para cambiar su fecha y hora.', side: 'left', align: 'start' } },
+      { popover: { title: '🎨 Colores por estado', description: '<span style="color:#3b82f6">■</span> Pendiente &nbsp; <span style="color:#22c55e">■</span> Confirmada &nbsp; <span style="color:#6b7280">■</span> Realizada &nbsp; <span style="color:#ef4444">■</span> Cancelada &nbsp; <span style="color:#f97316">■</span> No asistió', side: 'over', align: 'center' } },
+      { popover: { title: '✅ ¡Listo!', description: 'Para organizar el orden de visitas de un día usa la sección <b>Ruta del Día</b> desde el navbar.', side: 'over', align: 'center' } },
+    ],
+  }).drive();
+}
+
+/* ══════════════════════════════════════════════════════
+   TOUR DEL FORMULARIO DE NUEVA VISITA — Driver.js
+   Se activa con el botón "Guía del formulario" del modal
+══════════════════════════════════════════════════════ */
+function iniciarTourFormVisita() {
+  const { driver } = window.driver.js;
+
+  const tourForm = driver({
+    showProgress:   true,
+    animate:        true,
+    overlayOpacity: 0.60,
+    smoothScroll:   true,
+    allowClose:     true,
+    stagePadding:   8,
+    stageRadius:    10,
+    nextBtnText:    'Siguiente →',
+    prevBtnText:    '← Anterior',
+    doneBtnText:    '¡Entendido! ✓',
+    steps: [
+      {
+        // Paso 0 — Bienvenida
+        popover: {
+          title:       '📋 Formulario de Nueva Visita',
+          description: 'Este tour te explica cada campo para que registres la visita correctamente. Sigue los pasos y completa toda la información necesaria.',
+          side:        'over',
+          align:       'center',
+        },
+      },
+      {
+        // Paso 1 — Propiedad
+        element: '#campoFPropiedad',
+        popover: {
+          title:       '1 · Propiedad',
+          description: 'Selecciona el inmueble que se va a visitar. Solo aparecen las propiedades registradas y disponibles en el catálogo. Este campo es <strong>obligatorio</strong>.',
+          side:        'bottom',
+          align:       'start',
+        },
+      },
+      {
+        // Paso 2 — Comprador
+        element: '#campoFComprador',
+        popover: {
+          title:       '2 · Comprador',
+          description: 'Elige el cliente interesado en ver la propiedad. Aparece el nombre completo y la cédula para identificarlo fácilmente. Campo <strong>obligatorio</strong>.',
+          side:        'bottom',
+          align:       'start',
+        },
+      },
+      {
+        // Paso 3 — Agente
+        element: '#campoFAgente',
+        popover: {
+          title:       '3 · Agente asignado',
+          description: 'Asigna el agente que acompañará la visita. Si el administrador crea la visita puede dejarlo en blanco y asignarlo luego. El agente verá la visita en su calendario y ruta del día.',
+          side:        'bottom',
+          align:       'start',
+        },
+      },
+      {
+        // Paso 4 — Fecha y hora
+        element: '#campoFFechaHora',
+        popover: {
+          title:       '4 · Fecha y Hora',
+          description: 'Indica cuándo se realizará la visita. Si hiciste clic en un día del calendario, este campo se prellena automáticamente con la fecha seleccionada a las 09:00. Campo <strong>obligatorio</strong>.',
+          side:        'bottom',
+          align:       'start',
+        },
+      },
+      {
+        // Paso 5 — Duración
+        element: '#campoFDuracion',
+        popover: {
+          title:       '5 · Duración (minutos)',
+          description: 'Tiempo estimado de la visita en minutos. El valor por defecto es 30 min. Puedes ajustarlo en incrementos de 15 min. Esta duración se refleja visualmente en la vista de semana y día del calendario.',
+          side:        'bottom',
+          align:       'start',
+        },
+      },
+      {
+        // Paso 6 — Orden en ruta
+        element: '#campoFOrden',
+        popover: {
+          title:       '6 · Orden en ruta',
+          description: 'Si el agente tiene varias visitas en el mismo día, este número define el orden de recorrido. Luego puedes reordenarlas con drag & drop desde la sección <strong>Ruta del Día</strong>.',
+          side:        'bottom',
+          align:       'start',
+        },
+      },
+      {
+        // Paso 7 — Estado
+        element: '#campoFEstado',
+        popover: {
+          title:       '7 · Estado de la visita',
+          description: '<strong>Pendiente:</strong> aún no confirmada.<br><strong>Confirmada:</strong> el comprador y el agente acordaron la visita.<br><strong>Realizada:</strong> ya se ejecutó.<br><strong>Cancelada / No asistió:</strong> para registrar incidencias.',
+          side:        'top',
+          align:       'start',
+        },
+      },
+      {
+        // Paso 8 — Notas
+        element: '#campoFNotas',
+        popover: {
+          title:       '8 · Notas adicionales',
+          description: 'Espacio libre para observaciones: instrucciones de acceso, preferencias del comprador, condiciones especiales del inmueble, etc. La información aquí ayuda al agente a prepararse mejor.',
+          side:        'top',
+          align:       'start',
+        },
+      },
+      {
+        // Paso 9 — Botón guardar
+        element: '#btnGuardarVisita',
+        popover: {
+          title:       '9 · Guardar la visita',
+          description: 'Cuando hayas completado los campos obligatorios (<span style="color:#ef4444;">*</span>) haz clic en <strong>Guardar</strong>. La visita aparecerá de inmediato en el calendario con el color del estado elegido.',
+          side:        'top',
+          align:       'center',
+        },
+      },
+      {
+        // Paso 10 — Final
+        popover: {
+          title:       '✅ ¡Todo listo!',
+          description: 'Ya conoces cada campo del formulario. Recuerda: cuanta más información completes, mejor preparado estará el agente para la visita. ¡Éxito!',
+          side:        'over',
+          align:       'center',
+        },
+      },
+    ],
+  });
+
+  tourForm.drive();
+}
+</script>
+{% endblock %}

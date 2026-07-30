@@ -1,0 +1,491 @@
+{% extends 'PlantillaPrincipal.html' %}
+{% load static %}
+
+{% block titulo %}{{ accion }} Propiedad — Conexión Inmobiliaria{% endblock %}
+
+{% block estilos %}
+<!-- Driver.js CSS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/driver.js@1.3.1/dist/driver.css" />
+<style>
+  .page-header { background:linear-gradient(135deg,var(--primary) 0%,#1a4fbb 100%); padding:32px 0 24px; margin-bottom:32px; }
+  .page-header h1 { color:#fff; font-size:26px; font-weight:700; margin:0; }
+  .form-card { background:#fff; border-radius:14px; box-shadow:0 3px 20px rgba(0,0,0,.08); padding:32px; margin-bottom:24px; }
+  .section-title { font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--primary); border-bottom:2px solid var(--primary); padding-bottom:6px; margin-bottom:20px; }
+  .form-label { font-weight:600; font-size:13px; color:#374151; margin-bottom:5px; }
+  .form-control, .form-select { border-radius:8px; border:1.5px solid #e0e0e0; padding:10px 14px; font-size:14px; transition:border-color .2s; }
+  .form-control:focus, .form-select:focus { border-color:var(--primary); box-shadow:0 0 0 3px rgba(37,99,235,.1); }
+  .btn-guardar { text-transform:none; letter-spacing:normal; padding:11px 32px; font-size:15px; border-radius:8px; }
+  .btn-cancelar { text-transform:none; letter-spacing:normal; padding:11px 24px; font-size:15px; border-radius:8px; border:1.5px solid #e0e0e0; color:#6b7280; }
+  .img-preview { max-height:180px; border-radius:10px; object-fit:cover; margin-top:10px; display:none; }
+
+  /* Botón del tour */
+  .btn-tour {
+    display:inline-flex; align-items:center; gap:6px;
+    background:rgba(255,255,255,.18); color:#fff;
+    border:2px solid rgba(255,255,255,.5); border-radius:8px;
+    padding:7px 16px; font-size:13px; font-weight:600;
+    text-transform:none; letter-spacing:normal;
+    cursor:pointer; transition:all .2s;
+  }
+  .btn-tour:hover { background:rgba(255,255,255,.32); color:#fff; }
+
+  /* Driver.js overrides para que combine con el tema */
+  .driver-popover { border-radius:12px !important; }
+  .driver-popover-title { font-size:16px !important; font-weight:700 !important; color:#1e293b !important; }
+  .driver-popover-description { font-size:14px !important; color:#475569 !important; line-height:1.6 !important; }
+  .driver-popover-progress-text { font-size:12px !important; color:#94a3b8 !important; }
+  .driver-popover-next-btn {
+    background:var(--primary) !important; border-color:var(--primary) !important;
+    border-radius:7px !important; font-size:13px !important;
+    text-transform:none !important; letter-spacing:normal !important;
+  }
+  .driver-popover-prev-btn {
+    border-radius:7px !important; font-size:13px !important;
+    text-transform:none !important; letter-spacing:normal !important;
+  }
+  .driver-popover-close-btn { font-size:18px !important; }
+</style>
+{% endblock %}
+
+
+{% block contenido %}
+<div class="page-header">
+  <div class="container">
+    <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap">
+      <div class="d-flex align-items-center gap-3">
+        <a href="{% url 'propiedades_lista' %}" style="color:rgba(255,255,255,.75); font-size:22px;">
+          <i class="lni lni-arrow-left"></i>
+        </a>
+        <div>
+          <h1>{{ accion }} Propiedad</h1>
+          <p style="color:rgba(255,255,255,.75);margin:4px 0 0;font-size:14px;">
+            {% if accion == 'Editar' %}Modifica los datos del inmueble
+            {% else %}Registra un nuevo inmueble en el sistema{% endif %}
+          </p>
+        </div>
+      </div>
+      <!-- Botón del tour — solo visible al Crear -->
+      {% if accion == 'Crear' %}
+      <button class="btn-tour" id="btnTour" onclick="iniciarTour()">
+        <i class="lni lni-graduation"></i> Tour de captación
+      </button>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+
+<div class="container pb-5">
+  {% if messages %}
+    {% for msg in messages %}
+      <div class="alert alert-{% if msg.tags == 'error' %}danger{% else %}{{ msg.tags }}{% endif %} alert-dismissible fade show mb-3">
+        {{ msg }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    {% endfor %}
+  {% endif %}
+
+  <form method="POST" enctype="multipart/form-data" novalidate id="formPropiedad">
+    {% csrf_token %}
+    <div class="row g-4">
+
+      <!-- ── Columna izquierda ─────────────────────── -->
+      <div class="col-lg-8">
+
+        <!-- Información general -->
+        <div class="form-card" id="seccionInfoGeneral">
+          <p class="section-title"><i class="lni lni-home me-2"></i>Información General</p>
+
+          <div class="mb-3" id="campoTitulo">
+            <label class="form-label">Título <span class="text-danger">*</span></label>
+            <input type="text" name="titulo" class="form-control"
+              placeholder="Ej: Casa moderna en el Norte"
+              value="{{ propiedad.titulo|default:'' }}" required>
+          </div>
+
+          <div class="row">
+            <div class="col-md-6 mb-3" id="campoTipo">
+              <label class="form-label">Tipo <span class="text-danger">*</span></label>
+              <select name="tipo" class="form-select" required>
+                <option value="">Selecciona...</option>
+                {% for val, label in tipo_choices %}
+                  <option value="{{ val }}" {% if propiedad.tipo == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6 mb-3" id="campoEstado">
+              <label class="form-label">Estado</label>
+              <select name="estado" class="form-select">
+                {% for val, label in estado_choices %}
+                  <option value="{{ val }}" {% if propiedad.estado == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+
+          <div class="mb-3" id="campoDescripcion">
+            <label class="form-label">Descripción</label>
+            <textarea name="descripcion" class="form-control" rows="4"
+              placeholder="Describe las características principales del inmueble...">{{ propiedad.descripcion|default:'' }}</textarea>
+          </div>
+        </div>
+
+        <!-- Características -->
+        <div class="form-card" id="seccionCaracteristicas">
+          <p class="section-title"><i class="lni lni-rulers me-2"></i>Características</p>
+          <div class="row">
+            <div class="col-md-4 mb-3" id="campoPrecio">
+              <label class="form-label">Precio (USD) <span class="text-danger">*</span></label>
+              <input type="number" name="precio" class="form-control" min="0" step="0.01"
+                placeholder="0.00" value="{% if propiedad.precio is not None %}{{ propiedad.precio|stringformat:'.2f' }}{% endif %}" required>
+            </div>
+            <div class="col-md-4 mb-3" id="campoArea">
+              <label class="form-label">Área (m²) <span class="text-danger">*</span></label>
+              <input type="number" name="area_m2" class="form-control" min="0" step="0.01"
+                placeholder="0.00" value="{% if propiedad.area_m2 is not None %}{{ propiedad.area_m2|stringformat:'.2f' }}{% endif %}" required>
+            </div>
+            <div class="col-md-4 mb-3" id="campoParqueaderos">
+              <label class="form-label">Parqueaderos</label>
+              <input type="number" name="parqueaderos" class="form-control" min="0"
+                value="{{ propiedad.parqueaderos|default:0 }}">
+            </div>
+            <div class="col-md-4 mb-3" id="campoDormitorios">
+              <label class="form-label">Dormitorios</label>
+              <input type="number" name="dormitorios" class="form-control" min="0"
+                value="{{ propiedad.dormitorios|default:0 }}">
+            </div>
+            <div class="col-md-4 mb-3" id="campoBanos">
+              <label class="form-label">Baños</label>
+              <input type="number" name="banos" class="form-control" min="0"
+                value="{{ propiedad.banos|default:0 }}">
+            </div>
+          </div>
+        </div>
+
+        <!-- Ubicación -->
+        <div class="form-card" id="seccionUbicacion">
+          <p class="section-title"><i class="lni lni-map-marker me-2"></i>Ubicación</p>
+          <div class="mb-3" id="campoDireccion">
+            <label class="form-label">Dirección <span class="text-danger">*</span></label>
+            <input type="text" name="direccion" class="form-control" placeholder="Av. Principal 123"
+              value="{{ propiedad.direccion|default:'' }}" required>
+          </div>
+          <div class="row">
+            <div class="col-md-6 mb-3" id="campoCiudad">
+              <label class="form-label">Ciudad <span class="text-danger">*</span></label>
+              <input type="text" name="ciudad" class="form-control" placeholder="Quito"
+                value="{{ propiedad.ciudad|default:'' }}" required>
+            </div>
+            <div class="col-md-6 mb-3" id="campoSector">
+              <label class="form-label">Sector</label>
+              <input type="text" name="sector" class="form-control" placeholder="La Carolina"
+                value="{{ propiedad.sector|default:'' }}">
+            </div>
+            <div class="col-md-6 mb-3" id="campoLatitud">
+              <label class="form-label">Latitud</label>
+              <input type="number" name="latitud" class="form-control" step="0.000001"
+                placeholder="-0.180653" value="{% if propiedad.latitud is not None %}{{ propiedad.latitud|stringformat:'.6f' }}{% endif %}">
+            </div>
+            <div class="col-md-6 mb-3" id="campoLongitud">
+              <label class="form-label">Longitud</label>
+              <input type="number" name="longitud" class="form-control" step="0.000001"
+                placeholder="-78.467834" value="{% if propiedad.longitud is not None %}{{ propiedad.longitud|stringformat:'.6f' }}{% endif %}">
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ── Columna derecha ──────────────────────── -->
+      <div class="col-lg-4">
+
+        <!-- Imagen -->
+        <div class="form-card" id="seccionImagen">
+          <p class="section-title"><i class="lni lni-image me-2"></i>Imagen Principal</p>
+          {% if propiedad.imagen_principal %}
+            <img src="{{ propiedad.imagen_principal.url }}" class="img-fluid rounded mb-2"
+              style="max-height:180px;object-fit:cover;width:100%;" alt="Imagen actual">
+            <p class="text-muted" style="font-size:12px;">Imagen actual. Sube una nueva para reemplazarla.</p>
+          {% endif %}
+          <input type="file" name="imagen_principal" class="form-control" accept="image/*"
+            onchange="previewImg(this)">
+          <img id="imgPreview" class="img-preview w-100" alt="Vista previa">
+        </div>
+
+        <!-- Agente -->
+        <div class="form-card" id="seccionAgente">
+          <p class="section-title"><i class="lni lni-user me-2"></i>Agente Captador</p>
+          {% if rol == 'agente' or rol == 'vendedor' %}
+          {# El agente no puede cambiar la asignación — siempre se asigna a sí mismo #}
+          <div class="form-control" style="background:#f8faff;color:#6b7280;">
+            <i class="lni lni-user me-1"></i>{{ request.user.get_full_name|default:request.user.username }}
+          </div>
+          <p class="text-muted mt-2" style="font-size:12px;">
+            La propiedad se asignará automáticamente a tu perfil como agente captador.
+          </p>
+          {% else %}
+          <select name="agente" class="form-select" id="selectAgente">
+            <option value="">Sin agente asignado</option>
+            {% for a in agentes %}
+              <option value="{{ a.pk }}" {% if propiedad.agente and propiedad.agente.pk == a.pk %}selected{% endif %}>
+                {{ a.nombre_completo }}
+              </option>
+            {% endfor %}
+          </select>
+          <p class="text-muted mt-2" style="font-size:12px;">
+            El agente captador es quien gestionó el contacto con el propietario.
+          </p>
+          {% endif %}
+        </div>
+
+        <!-- Acciones -->
+        <div class="form-card" id="seccionAcciones">
+          <button type="submit" class="btn primary-btn btn-guardar w-100 mb-2" id="btnGuardar">
+            <i class="lni lni-save me-2"></i>{{ accion }} Propiedad
+          </button>
+          <a href="{% url 'propiedades_lista' %}" class="btn btn-cancelar w-100 text-center">
+            Cancelar
+          </a>
+        </div>
+
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+
+{% block scripts %}
+<!-- Driver.js -->
+<script src="https://cdn.jsdelivr.net/npm/driver.js@1.3.1/dist/driver.js.iife.js"></script>
+
+<script>
+  $(function() {
+    // ── Bootstrap FileInput para imagen principal ──────
+    $('input[name="imagen_principal"]').fileinput({
+      language:       'es',
+      showUpload:     false,
+      showCaption:    true,
+      browseClass:    'btn primary-btn btn-sm',
+      removeClass:    'btn btn-sm',
+      browseLabel:    '<i class="lni lni-image me-1"></i> Elegir imagen',
+      removeLabel:    'Quitar',
+      msgPlaceholder: 'Selecciona una imagen...',
+      allowedFileExtensions: ['jpg','jpeg','png','webp','gif'],
+      maxFileSize:    2048,
+      previewFileType:'image',
+    });
+
+    // ── jQuery Validate en el formulario ──────────────
+    $('#formPropiedad').validate({
+      rules: {
+        titulo:    { required: true, minlength: 3 },
+        tipo:      { required: true },
+        precio:    { required: true, number: true, min: 1 },
+        area_m2:   { required: true, number: true, min: 1 },
+        direccion: { required: true, minlength: 5 },
+        ciudad:    { required: true, minlength: 2 },
+      },
+      submitHandler: function(form) {
+        Swal.fire({
+          title:            '¿Guardar propiedad?',
+          text:             'Se guardará la información del inmueble.',
+          icon:             'question',
+          showCancelButton: true,
+          confirmButtonColor:'#2563eb',
+          cancelButtonColor: '#6b7280',
+          confirmButtonText: '<i class="lni lni-save"></i> Guardar',
+          cancelButtonText:  'Revisar',
+          reverseButtons:    true,
+        }).then(result => { if (result.isConfirmed) form.submit(); });
+      },
+    });
+  });
+
+  /* ══════════════════════════════════════════════════
+     TOUR DE CAPTACIÓN — Driver.js
+     Se activa con el botón "Tour de captación"
+     o automáticamente la primera vez (localStorage)
+  ══════════════════════════════════════════════════ */
+  function iniciarTour() {
+    const driver = window.driver.js.driver;
+
+    const tourDriver = driver({
+      showProgress:    true,
+      animate:         true,
+      overlayOpacity:  0.55,
+      smoothScroll:    true,
+      allowClose:      true,
+      stagePadding:    8,
+      stageRadius:     10,
+
+      nextBtnText:  'Siguiente →',
+      prevBtnText:  '← Anterior',
+      doneBtnText:  '¡Listo! ✓',
+
+      steps: [
+        {
+          // Paso 0 — Bienvenida (sin elemento, centrado)
+          popover: {
+            title:       '🏠 Bienvenido al formulario de captación',
+            description: 'Este tour te guiará paso a paso para registrar correctamente una nueva propiedad en el sistema. Sigue las instrucciones para completar todos los campos importantes.',
+            side:        'over',
+            align:       'center',
+          },
+        },
+        {
+          // Paso 1 — Título
+          element: '#campoTitulo',
+          popover: {
+            title:       '1 · Título de la propiedad',
+            description: 'Escribe un título claro y atractivo. Debe describir el tipo de inmueble y su ubicación general. Ej: <strong>"Casa de 3 dormitorios en La Carolina"</strong>. Un buen título atrae más visitas.',
+            side:        'bottom',
+            align:       'start',
+          },
+        },
+        {
+          // Paso 2 — Tipo
+          element: '#campoTipo',
+          popover: {
+            title:       '2 · Tipo de inmueble',
+            description: 'Selecciona la categoría correcta: Casa, Departamento, Terreno, Local Comercial u Oficina. El tipo afecta los filtros de búsqueda que usarán los compradores.',
+            side:        'bottom',
+            align:       'start',
+          },
+        },
+        {
+          // Paso 3 — Estado
+          element: '#campoEstado',
+          popover: {
+            title:       '3 · Estado de la propiedad',
+            description: '<strong>Disponible:</strong> lista para visitas y negociación.<br><strong>Reservada:</strong> con oferta en curso.<br><strong>Vendida:</strong> se actualiza automáticamente al firmar un contrato.',
+            side:        'bottom',
+            align:       'start',
+          },
+        },
+        {
+          // Paso 4 — Descripción
+          element: '#campoDescripcion',
+          popover: {
+            title:       '4 · Descripción detallada',
+            description: 'Detalla los acabados, puntos fuertes y cualquier característica especial del inmueble. Una descripción completa reduce el número de preguntas y acelera el cierre.',
+            side:        'top',
+            align:       'start',
+          },
+        },
+        {
+          // Paso 5 — Sección características
+          element: '#seccionCaracteristicas',
+          popover: {
+            title:       '5 · Características del inmueble',
+            description: 'Completa el precio de venta, área total en m², número de dormitorios, baños y parqueaderos. Estos datos son los primeros que revisan los compradores para filtrar propiedades.',
+            side:        'top',
+            align:       'start',
+          },
+        },
+        {
+          // Paso 6 — Precio
+          element: '#campoPrecio',
+          popover: {
+            title:       '6 · Precio de venta',
+            description: 'Ingresa el precio en dólares (USD) acordado con el propietario. Este valor se usará como base para calcular la comisión del agente al momento de firmar el contrato.',
+            side:        'right',
+            align:       'start',
+          },
+        },
+        {
+          // Paso 7 — Área
+          element: '#campoArea',
+          popover: {
+            title:       '7 · Área total (m²)',
+            description: 'Área de construcción en metros cuadrados. Si el terreno tiene diferente metraje que la construcción, usa el área construida aquí y detalla el terreno en la descripción.',
+            side:        'right',
+            align:       'start',
+          },
+        },
+        {
+          // Paso 8 — Ubicación
+          element: '#seccionUbicacion',
+          popover: {
+            title:       '8 · Ubicación del inmueble',
+            description: 'La ubicación es clave para el comprador. Completa la dirección exacta, ciudad y sector. Si conoces las coordenadas GPS, agrégalas para mostrar el mapa en el detalle.',
+            side:        'top',
+            align:       'start',
+          },
+        },
+        {
+          // Paso 9 — Ciudad
+          element: '#campoCiudad',
+          popover: {
+            title:       '9 · Ciudad',
+            description: 'Escribe la ciudad donde se ubica el inmueble. Este campo se usa en los filtros de búsqueda del catálogo.',
+            side:        'bottom',
+            align:       'start',
+          },
+        },
+        {
+          // Paso 10 — Sector
+          element: '#campoSector',
+          popover: {
+            title:       '10 · Sector o barrio',
+            description: 'El sector ayuda a los compradores a identificar la zona exacta. Ej: La Carolina, Cumbayá, El Batán. Es importante para las búsquedas por zona.',
+            side:        'bottom',
+            align:       'start',
+          },
+        },
+        {
+          // Paso 11 — Imagen
+          element: '#seccionImagen',
+          popover: {
+            title:       '11 · Imagen principal',
+            description: 'Sube la foto más atractiva del inmueble — idealmente la fachada o el área social. Las propiedades con imagen reciben <strong>hasta 3× más consultas</strong>. Formatos: JPG, PNG.',
+            side:        'left',
+            align:       'start',
+          },
+        },
+        {
+          // Paso 12 — Agente captador
+          element: '#seccionAgente',
+          popover: {
+            title:       '12 · Agente captador',
+            description: 'Asigna el agente que captó este inmueble. Al firmar un contrato, el sistema calculará automáticamente la comisión según el porcentaje configurado en el perfil del agente.',
+            side:        'left',
+            align:       'start',
+          },
+        },
+        {
+          // Paso 13 — Botón guardar
+          element: '#btnGuardar',
+          popover: {
+            title:       '13 · ¡Todo listo para guardar!',
+            description: 'Revisa que los campos obligatorios (<span style="color:#ef4444;">*</span>) estén completos: Título, Tipo, Precio, Área, Dirección y Ciudad. Luego haz clic en <strong>"Crear Propiedad"</strong> para registrarla en el catálogo.',
+            side:        'top',
+            align:       'center',
+          },
+        },
+        {
+          // Paso 14 — Final
+          popover: {
+            title:       '✅ ¡Captación completada!',
+            description: 'Ya conoces todos los pasos para registrar una propiedad. Recuerda: mientras más completo sea el registro, más rápido se cierra la venta. ¡Éxito en la captación!',
+            side:        'over',
+            align:       'center',
+          },
+        },
+      ],
+    });
+
+    tourDriver.drive();
+  }
+
+  /* ── Iniciar tour automáticamente la primera vez ── */
+  document.addEventListener('DOMContentLoaded', function () {
+    const tourKey = 'tour_captacion_visto';
+    {% if accion == 'Crear' %}
+    if (!localStorage.getItem(tourKey)) {
+      setTimeout(iniciarTour, 600);
+      localStorage.setItem(tourKey, '1');
+    }
+    {% endif %}
+  });
+</script>
+{% endblock %}

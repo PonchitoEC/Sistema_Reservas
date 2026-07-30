@@ -1,0 +1,201 @@
+{% extends 'PlantillaPrincipal.html' %}
+{% load static %}
+
+{% block titulo %}{{ accion }} Contrato — Conexión Inmobiliaria{% endblock %}
+
+{% block estilos %}
+<style>
+  .page-header { background:linear-gradient(135deg,var(--primary) 0%,#1a4fbb 100%); padding:32px 0 24px; margin-bottom:32px; }
+  .page-header h1 { color:#fff; font-size:26px; font-weight:700; margin:0; }
+  .form-card { background:#fff; border-radius:14px; box-shadow:0 3px 20px rgba(0,0,0,.08); padding:32px; margin-bottom:24px; }
+  .section-title { font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--primary); border-bottom:2px solid var(--primary); padding-bottom:6px; margin-bottom:20px; }
+  .form-label { font-weight:600; font-size:13px; color:#374151; margin-bottom:5px; }
+  .form-control, .form-select { border-radius:8px; border:1.5px solid #e0e0e0; padding:10px 14px; font-size:14px; transition:border-color .2s; }
+  .form-control:focus, .form-select:focus { border-color:var(--primary); box-shadow:0 0 0 3px rgba(37,99,235,.1); }
+  .btn-guardar { text-transform:none; letter-spacing:normal; padding:11px 32px; font-size:15px; border-radius:8px; }
+  .btn-cancelar { text-transform:none; letter-spacing:normal; padding:11px 24px; font-size:15px; border-radius:8px; border:1.5px solid #e0e0e0; color:#6b7280; }
+  .comision-preview { background:linear-gradient(135deg,#dcfce7,#bbf7d0); border-radius:10px; padding:16px; text-align:center; }
+  .comision-preview .amount { font-size:28px; font-weight:700; color:#16a34a; }
+  .comision-preview .label  { font-size:13px; color:#166534; }
+</style>
+{% endblock %}
+
+{% block contenido %}
+<div class="page-header">
+  <div class="container">
+    <div class="d-flex align-items-center gap-3">
+      <a href="{% url 'contratos_lista' %}" style="color:rgba(255,255,255,.75);font-size:22px;">
+        <i class="lni lni-arrow-left"></i>
+      </a>
+      <div>
+        <h1>{{ accion }} Contrato de Venta</h1>
+        <p style="color:rgba(255,255,255,.75);margin:4px 0 0;font-size:14px;">
+          {% if accion == 'Editar' %}Modifica el contrato{% else %}Registra un nuevo contrato de venta{% endif %}
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="container pb-5">
+  {% if messages %}
+    {% for msg in messages %}
+      <div class="alert alert-{% if msg.tags == 'error' %}danger{% else %}{{ msg.tags }}{% endif %} alert-dismissible fade show mb-3">
+        {{ msg }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    {% endfor %}
+  {% endif %}
+
+  <form method="POST" enctype="multipart/form-data" novalidate>
+    {% csrf_token %}
+    <div class="row g-4">
+
+      <div class="col-lg-8">
+
+        <!-- Partes del contrato -->
+        <div class="form-card">
+          <p class="section-title"><i class="lni lni-users me-2"></i>Partes del Contrato</p>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Número de contrato</label>
+              <input type="text" name="numero_contrato" class="form-control"
+                placeholder="CONT-2026-001"
+                value="{{ contrato.numero_contrato|default:'' }}">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Estado</label>
+              <select name="estado" class="form-select">
+                {% for val, label in estado_choices %}
+                  <option value="{{ val }}" {% if contrato.estado == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-12 mb-3">
+              <label class="form-label">Propiedad <span class="text-danger">*</span></label>
+              <select name="propiedad" class="form-select" required>
+                <option value="">Selecciona una propiedad...</option>
+                {% for p in propiedades %}
+                  <option value="{{ p.pk }}" {% if contrato.propiedad and contrato.propiedad.pk == p.pk %}selected{% endif %}>
+                    {{ p.titulo }} — ${{ p.precio|floatformat:0 }} [{{ p.get_estado_display }}]{% if p.agente %} — Vendedor: {{ p.agente.nombre_completo }}{% else %} — Sin vendedor asignado{% endif %}
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Comprador <span class="text-danger">*</span></label>
+              <select name="comprador" class="form-select" required>
+                <option value="">Selecciona...</option>
+                {% for c in compradores %}
+                  <option value="{{ c.pk }}" {% if contrato.comprador and contrato.comprador.pk == c.pk %}selected{% endif %}>
+                    {{ c.user.get_full_name }} ({{ c.user.username }}) — {{ c.cedula }}
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Vendedor / Agente</label>
+              <select name="agente" class="form-select" id="selectAgente"
+                onchange="calcularComision()">
+                <option value="">Selecciona...</option>
+                {% for a in agentes %}
+                  <option value="{{ a.pk }}"
+                    data-comision="{{ a.comision_pct }}"
+                    {% if contrato.agente and contrato.agente.pk == a.pk %}selected{% endif %}>
+                    {{ a.nombre_completo }} ({{ a.comision_pct }}%)
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Condiciones económicas -->
+        <div class="form-card">
+          <p class="section-title"><i class="lni lni-wallet me-2"></i>Condiciones Económicas</p>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Precio acordado (USD) <span class="text-danger">*</span></label>
+              <input type="number" name="precio_acordado" id="precioAcordado"
+                class="form-control" min="0" step="0.01"
+                value="{% if contrato.precio_acordado is not None %}{{ contrato.precio_acordado|stringformat:'.2f' }}{% endif %}"
+                placeholder="0.00" required oninput="calcularComision()">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Fecha de firma</label>
+              <input type="date" name="fecha_firma" class="form-control"
+                value="{{ contrato.fecha_firma|date:'Y-m-d'|default:'' }}">
+            </div>
+          </div>
+        </div>
+
+        <!-- Observaciones y documento -->
+        <div class="form-card">
+          <p class="section-title"><i class="lni lni-files me-2"></i>Documentación</p>
+          <div class="mb-3">
+            <label class="form-label">Observaciones</label>
+            <textarea name="observaciones" class="form-control" rows="3"
+              placeholder="Notas adicionales del contrato...">{{ contrato.observaciones|default:'' }}</textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Documento del contrato</label>
+            {% if contrato.documento %}
+              <p class="text-muted" style="font-size:13px;">
+                <i class="lni lni-files me-1"></i>Documento actual:
+                <a href="{{ contrato.documento.url }}" target="_blank">Ver documento</a>
+              </p>
+            {% endif %}
+            <input type="file" name="documento" class="form-control" accept=".pdf,.doc,.docx">
+            <small class="text-muted">PDF o Word. Sube uno nuevo para reemplazar el actual.</small>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Columna derecha -->
+      <div class="col-lg-4">
+
+        <!-- Preview comisión -->
+        <div class="form-card">
+          <p class="section-title"><i class="lni lni-calculator me-2"></i>Comisión Estimada</p>
+          <div class="comision-preview">
+            <div class="amount" id="comisionPreview">$0.00</div>
+            <div class="label" id="comisionLabel">Selecciona agente y precio</div>
+          </div>
+          {% if contrato.comision_calculada %}
+          <p class="text-muted text-center mt-2" style="font-size:12px;">
+            Comisión guardada: ${{ contrato.comision_calculada|floatformat:2 }}
+          </p>
+          {% endif %}
+        </div>
+
+        <!-- Acciones -->
+        <div class="form-card">
+          <button type="submit" class="btn primary-btn btn-guardar w-100 mb-2">
+            <i class="lni lni-save me-2"></i>{{ accion }} Contrato
+          </button>
+          <a href="{% url 'contratos_lista' %}" class="btn btn-cancelar w-100 text-center">
+            Cancelar
+          </a>
+        </div>
+
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function calcularComision() {
+    const precio   = parseFloat(document.getElementById('precioAcordado').value) || 0;
+    const select   = document.getElementById('selectAgente');
+    const opt      = select.options[select.selectedIndex];
+    const pct      = parseFloat(opt?.dataset?.comision) || 0;
+    const comision = precio * pct / 100;
+    document.getElementById('comisionPreview').textContent = '$' + comision.toLocaleString('es-EC', {minimumFractionDigits:2, maximumFractionDigits:2});
+    document.getElementById('comisionLabel').textContent   = pct > 0 ? `${pct}% sobre $${precio.toLocaleString('es-EC')}` : 'Selecciona agente y precio';
+  }
+  // Calcular al cargar si hay valores
+  window.addEventListener('DOMContentLoaded', calcularComision);
+</script>
+{% endblock %}

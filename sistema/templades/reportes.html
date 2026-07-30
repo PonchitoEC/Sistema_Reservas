@@ -1,0 +1,409 @@
+{% extends 'PlantillaPrincipal.html' %}
+{% load static %}
+
+{% block titulo %}Reportes — Conexión Inmobiliaria{% endblock %}
+
+{% block estilos %}
+<style>
+  .page-header { background:linear-gradient(135deg,var(--primary) 0%,#1a4fbb 100%); padding:28px 0 20px; margin-bottom:28px; }
+  .page-header h1 { color:#fff; font-size:24px; font-weight:700; margin:0; }
+  .page-header p  { color:rgba(255,255,255,.75); margin:4px 0 0; font-size:14px; }
+  .kpi-card { background:#fff; border-radius:14px; box-shadow:0 3px 16px rgba(0,0,0,.08); padding:22px 24px; display:flex; align-items:center; gap:16px; }
+  .kpi-icon { width:52px; height:52px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:24px; flex-shrink:0; }
+  .kpi-value { font-size:28px; font-weight:700; line-height:1; }
+  .kpi-label { font-size:12px; color:#6b7280; margin-top:3px; }
+  .chart-card { background:#fff; border-radius:14px; box-shadow:0 3px 16px rgba(0,0,0,.08); padding:24px; margin-bottom:24px; }
+  .chart-card .chart-title { font-size:15px; font-weight:700; color:#1e293b; margin-bottom:4px; }
+  .chart-card .chart-sub   { font-size:12px; color:#6b7280; margin-bottom:20px; }
+  .table-card { background:#fff; border-radius:14px; box-shadow:0 3px 16px rgba(0,0,0,.08); overflow:hidden; margin-bottom:24px; }
+  .table-card .tc-header { padding:16px 22px; border-bottom:1px solid #f3f4f6; }
+  .table-card .tc-header h5 { font-weight:700; font-size:15px; margin:0; }
+  table thead th { background:var(--primary); color:#fff; font-size:12px; font-weight:600; padding:12px 16px; border:none; text-transform:uppercase; letter-spacing:.04em; }
+  table tbody td { padding:12px 16px; font-size:14px; vertical-align:middle; border-bottom:1px solid #f3f4f6; }
+  table tbody tr:last-child td { border-bottom:none; }
+  table tbody tr:hover td { background:#f8faff; }
+  .tasa-bar { height:8px; border-radius:4px; background:#e5e7eb; overflow:hidden; min-width:80px; }
+  .tasa-fill { height:100%; border-radius:4px; background:var(--primary); transition:width .6s; }
+  .badge-rank { width:28px; height:28px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; }
+  .rank-1 { background:#fef9c3; color:#ca8a04; }
+  .rank-2 { background:#f1f5f9; color:#475569; }
+  .rank-3 { background:#fff7ed; color:#c2410c; }
+  .rank-n { background:#f3f4f6; color:#9ca3af; }
+  .tab-btn { border:none; background:none; padding:10px 20px; font-size:14px; font-weight:600; color:#6b7280; border-bottom:3px solid transparent; cursor:pointer; transition:all .2s; }
+  .tab-btn.active { color:var(--primary); border-bottom-color:var(--primary); }
+  .tab-pane-r { display:none; }
+  .tab-pane-r.active { display:block; }
+</style>
+{% endblock %}
+
+{% block contenido %}
+<div class="page-header">
+  <div class="container">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+      <div>
+        <h1><i class="lni lni-bar-chart me-2"></i>Reportes y Estadísticas</h1>
+        <p>Efectividad de visitas, comisiones y tendencias del equipo</p>
+      </div>
+      <a href="{% url 'dashboard' %}" style="color:rgba(255,255,255,.75);font-size:22px;">
+        <i class="lni lni-arrow-left"></i>
+      </a>
+      <button class="btn-guia" onclick="iniciarTour()">
+        <i class="lni lni-graduation"></i> Guía
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="container pb-5">
+
+  <!-- KPIs globales -->
+  <div class="row g-3 mb-4" id="kpiRow">
+    <div class="col-lg-2 col-md-4 col-6">
+      <div class="kpi-card">
+        <div class="kpi-icon" style="background:rgba(37,99,235,.1);">
+          <i class="lni lni-home" style="color:var(--primary);"></i>
+        </div>
+        <div><div class="kpi-value" style="color:var(--primary);" id="kProp">—</div>
+          <div class="kpi-label">Propiedades</div></div>
+      </div>
+    </div>
+    <div class="col-lg-2 col-md-4 col-6">
+      <div class="kpi-card">
+        <div class="kpi-icon" style="background:#dbeafe;">
+          <i class="lni lni-calendar" style="color:#2563eb;"></i>
+        </div>
+        <div><div class="kpi-value" style="color:#2563eb;" id="kVisitas">—</div>
+          <div class="kpi-label">Total visitas</div></div>
+      </div>
+    </div>
+    <div class="col-lg-2 col-md-4 col-6">
+      <div class="kpi-card">
+        <div class="kpi-icon" style="background:#dcfce7;">
+          <i class="lni lni-checkmark-circle" style="color:#16a34a;"></i>
+        </div>
+        <div><div class="kpi-value" style="color:#16a34a;" id="kRealizadas">—</div>
+          <div class="kpi-label">Realizadas</div></div>
+      </div>
+    </div>
+    <div class="col-lg-2 col-md-4 col-6">
+      <div class="kpi-card">
+        <div class="kpi-icon" style="background:#f0fdf4;">
+          <i class="lni lni-files" style="color:#16a34a;"></i>
+        </div>
+        <div><div class="kpi-value" style="color:#16a34a;" id="kContratos">—</div>
+          <div class="kpi-label">Contratos</div></div>
+      </div>
+    </div>
+    <div class="col-lg-2 col-md-4 col-6">
+      <div class="kpi-card">
+        <div class="kpi-icon" style="background:#fef9c3;">
+          <i class="lni lni-target" style="color:#ca8a04;"></i>
+        </div>
+        <div><div class="kpi-value" style="color:#ca8a04;" id="kTasa">—%</div>
+          <div class="kpi-label">Tasa de cierre</div></div>
+      </div>
+    </div>
+    <div class="col-lg-2 col-md-4 col-6">
+      <div class="kpi-card">
+        <div class="kpi-icon" style="background:#f0fdf4;">
+          <i class="lni lni-wallet" style="color:#16a34a;"></i>
+        </div>
+        <div><div class="kpi-value" style="color:#16a34a;font-size:20px;" id="kComision">—</div>
+          <div class="kpi-label">Comisión total</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabs de secciones -->
+  <div style="border-bottom:2px solid #f3f4f6;margin-bottom:24px;">
+    <button class="tab-btn active" onclick="cambiarTab('efectividad',this)">Efectividad</button>
+    <button class="tab-btn" onclick="cambiarTab('comisiones',this)">Comisiones</button>
+    <button class="tab-btn" onclick="cambiarTab('cierre',this)">Visitas para cerrar</button>
+    <button class="tab-btn" onclick="cambiarTab('mensual',this)">Tendencia mensual</button>
+  </div>
+
+  <!-- ── TAB: Efectividad ───────────────────────────── -->
+  <div class="tab-pane-r active" id="tab-efectividad">
+    <div class="row g-4">
+      <div class="col-lg-5">
+        <div class="chart-card">
+          <div class="chart-title">Tasa de cierre por agente</div>
+          <div class="chart-sub">% de visitas realizadas que terminaron en contrato firmado</div>
+          <canvas id="graficaTasa" height="260"></canvas>
+        </div>
+      </div>
+      <div class="col-lg-7">
+        <div class="table-card">
+          <div class="tc-header">
+            <h5><i class="lni lni-bar-chart me-2" style="color:var(--primary);"></i>Detalle de efectividad</h5>
+          </div>
+          <div class="table-responsive">
+            <table class="table mb-0">
+              <thead><tr>
+                <th>#</th><th>Agente</th><th>Visitas</th>
+                <th>Realizadas</th><th>Contratos</th><th>Tasa cierre</th>
+              </tr></thead>
+              <tbody id="tablaEfectividad"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TAB: Comisiones ────────────────────────────── -->
+  <div class="tab-pane-r" id="tab-comisiones">
+    <div class="row g-4">
+      <div class="col-lg-5">
+        <div class="chart-card">
+          <div class="chart-title">Comisión generada por agente (USD)</div>
+          <div class="chart-sub">Total de comisiones de contratos firmados</div>
+          <canvas id="graficaComision" height="260"></canvas>
+        </div>
+      </div>
+      <div class="col-lg-7">
+        <div class="table-card">
+          <div class="tc-header">
+            <h5><i class="lni lni-wallet me-2" style="color:var(--primary);"></i>Detalle de comisiones</h5>
+          </div>
+          <div class="table-responsive">
+            <table class="table mb-0">
+              <thead><tr>
+                <th>#</th><th>Agente</th><th>% Comisión</th>
+                <th>Contratos</th><th>Total USD</th>
+              </tr></thead>
+              <tbody id="tablaComisiones"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TAB: Visitas para cerrar ──────────────────── -->
+  <div class="tab-pane-r" id="tab-cierre">
+    <div class="row g-4">
+      <div class="col-lg-6">
+        <div class="chart-card">
+          <div class="chart-title">Visitas necesarias para cerrar una venta</div>
+          <div class="chart-sub">Promedio de visitas realizadas por contrato firmado</div>
+          <canvas id="graficaCierre" height="280"></canvas>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="chart-card" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:320px;">
+          <div class="chart-title text-center">Promedio global del equipo</div>
+          <div class="chart-sub text-center">Visitas requeridas para cerrar 1 venta</div>
+          <div id="promedioGlobal"
+            style="font-size:88px;font-weight:800;color:var(--primary);line-height:1;">—</div>
+          <div style="font-size:16px;color:#6b7280;margin-top:8px;">visitas / contrato</div>
+          <p class="text-muted mt-3 text-center" style="font-size:13px;max-width:280px;">
+            Mientras menor sea este número, más eficiente es el equipo en convertir visitas en ventas.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TAB: Tendencia mensual ─────────────────────── -->
+  <div class="tab-pane-r" id="tab-mensual">
+    <div class="chart-card">
+      <div class="chart-title">Visitas y contratos por mes</div>
+      <div class="chart-sub">Evolución mensual del volumen de actividad</div>
+      <canvas id="graficaMensual" height="120"></canvas>
+    </div>
+  </div>
+
+</div><!-- /container -->
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+const API = '{% url "reportes_api" %}';
+const COLORES = ['#2563eb','#16a34a','#ca8a04','#dc2626','#7c3aed','#0891b2','#d97706','#be185d'];
+let charts = {};
+
+// ── Helpers ──────────────────────────────────────────
+function fmt(n) { return new Intl.NumberFormat('es-EC',{minimumFractionDigits:2,maximumFractionDigits:2}).format(n); }
+function rankBadge(i) {
+  const cls = i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':'rank-n';
+  return `<span class="badge-rank ${cls}">${i+1}</span>`;
+}
+async function cargar(tipo) {
+  const r = await fetch(`${API}?tipo=${tipo}`);
+  return r.json();
+}
+
+// ── KPIs ─────────────────────────────────────────────
+async function cargarKPIs() {
+  const d = await cargar('resumen');
+  document.getElementById('kProp').textContent      = d.total_propiedades;
+  document.getElementById('kVisitas').textContent   = d.total_visitas;
+  document.getElementById('kRealizadas').textContent= d.visitas_realizadas;
+  document.getElementById('kContratos').textContent = d.contratos_firmados;
+  document.getElementById('kTasa').textContent      = d.tasa_global + '%';
+  document.getElementById('kComision').textContent  = '$' + fmt(d.comision_total);
+}
+
+// ── Tab: Efectividad ─────────────────────────────────
+async function cargarEfectividad() {
+  const d = await cargar('efectividad');
+  const rows = d.data.sort((a,b) => b.tasa_cierre - a.tasa_cierre);
+
+  // Gráfico donut
+  if (charts.tasa) charts.tasa.destroy();
+  charts.tasa = new Chart(document.getElementById('graficaTasa'), {
+    type: 'doughnut',
+    data: {
+      labels:   rows.map(r => r.agente),
+      datasets: [{ data: rows.map(r => r.tasa_cierre), backgroundColor: COLORES, borderWidth: 2 }],
+    },
+    options: {
+      plugins: { legend: { position:'bottom', labels:{ font:{ size:12 } } } },
+      cutout: '60%',
+    },
+  });
+
+  // Tabla
+  const tbody = document.getElementById('tablaEfectividad');
+  tbody.innerHTML = rows.map((r,i) => `
+    <tr>
+      <td>${rankBadge(i)}</td>
+      <td class="fw-semibold">${r.agente}</td>
+      <td>${r.total_visitas}</td>
+      <td>${r.visitas_realizadas}</td>
+      <td>${r.contratos_firmados}</td>
+      <td>
+        <div class="d-flex align-items-center gap-2">
+          <div class="tasa-bar"><div class="tasa-fill" style="width:${Math.min(r.tasa_cierre,100)}%;background:${COLORES[i%COLORES.length]};"></div></div>
+          <span style="font-weight:700;color:${COLORES[i%COLORES.length]};">${r.tasa_cierre}%</span>
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+// ── Tab: Comisiones ──────────────────────────────────
+async function cargarComisiones() {
+  const d = await cargar('comisiones');
+  const rows = d.data.sort((a,b) => b.comision - a.comision);
+
+  if (charts.comision) charts.comision.destroy();
+  charts.comision = new Chart(document.getElementById('graficaComision'), {
+    type: 'bar',
+    data: {
+      labels:   rows.map(r => r.agente),
+      datasets: [{
+        label: 'Comisión USD',
+        data:  rows.map(r => r.comision),
+        backgroundColor: COLORES,
+        borderRadius: 8,
+      }],
+    },
+    options: {
+      plugins: { legend: { display:false } },
+      scales: {
+        y: { ticks: { callback: v => '$' + fmt(v) } },
+        x: { ticks: { font: { size:12 } } },
+      },
+    },
+  });
+
+  const tbody = document.getElementById('tablaComisiones');
+  tbody.innerHTML = rows.map((r,i) => `
+    <tr>
+      <td>${rankBadge(i)}</td>
+      <td class="fw-semibold">${r.agente}</td>
+      <td>${r.comision_pct}%</td>
+      <td>${r.contratos}</td>
+      <td style="font-weight:700;color:#16a34a;">$${fmt(r.comision)}</td>
+    </tr>`).join('');
+}
+
+// ── Tab: Visitas para cerrar ─────────────────────────
+async function cargarCierre() {
+  const d = await cargar('visitas_cierre');
+  const rows = d.data.sort((a,b) => a.visitas_por_cierre - b.visitas_por_cierre);
+
+  document.getElementById('promedioGlobal').textContent = d.promedio_global || '—';
+
+  if (charts.cierre) charts.cierre.destroy();
+  charts.cierre = new Chart(document.getElementById('graficaCierre'), {
+    type: 'bar',
+    data: {
+      labels:   rows.map(r => r.agente),
+      datasets: [{
+        label: 'Visitas por cierre',
+        data:  rows.map(r => r.visitas_por_cierre),
+        backgroundColor: rows.map((_,i) => COLORES[i % COLORES.length]),
+        borderRadius: 8,
+      }],
+    },
+    options: {
+      indexAxis: 'y',
+      plugins: { legend: { display:false } },
+      scales: { x: { beginAtZero:true } },
+    },
+  });
+}
+
+// ── Tab: Mensual ─────────────────────────────────────
+async function cargarMensual() {
+  const d = await cargar('mensual');
+  if (charts.mensual) charts.mensual.destroy();
+  charts.mensual = new Chart(document.getElementById('graficaMensual'), {
+    type: 'line',
+    data: {
+      labels: d.etiquetas,
+      datasets: [
+        { label:'Visitas', data:d.visitas, borderColor:'#2563eb', backgroundColor:'rgba(37,99,235,.1)', tension:.4, fill:true, pointRadius:4 },
+        { label:'Contratos', data:d.contratos, borderColor:'#16a34a', backgroundColor:'rgba(22,163,74,.1)', tension:.4, fill:true, pointRadius:4 },
+      ],
+    },
+    options: {
+      plugins: { legend: { position:'top' } },
+      scales: { y: { beginAtZero:true } },
+    },
+  });
+}
+
+// ── Cambiar tab ──────────────────────────────────────
+const cargadores = { efectividad:cargarEfectividad, comisiones:cargarComisiones, cierre:cargarCierre, mensual:cargarMensual };
+const cargado    = {};
+
+function cambiarTab(nombre, btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-pane-r').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-' + nombre).classList.add('active');
+  if (!cargado[nombre]) { cargadores[nombre](); cargado[nombre] = true; }
+}
+
+// ── Inicializar ──────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  cargarKPIs();
+  cargarEfectividad();
+  cargado['efectividad'] = true;
+});
+</script>
+
+<script>
+function iniciarTour() {
+  const { driver } = window.driver.js;
+  driver({
+    showProgress: true, animate: true, smoothScroll: true, allowClose: true,
+    stagePadding: 8, stageRadius: 10,
+    nextBtnText: 'Siguiente →', prevBtnText: '← Anterior', doneBtnText: '¡Entendido! ✓',
+    steps: [
+      { popover: { title: '📊 Reportes y Estadísticas', description: 'Analiza el rendimiento del equipo inmobiliario: efectividad de cierre, comisiones generadas y tendencias mensuales.', side: 'over', align: 'center' } },
+      { element: '#kpiRow', popover: { title: '🔢 KPIs globales', description: 'Muestra en tiempo real: total de propiedades, visitas, visitas realizadas, contratos firmados, tasa de cierre y comisión total generada.', side: 'bottom', align: 'start' } },
+      { element: '.tab-btn.active', popover: { title: '📑 Secciones de reportes', description: 'Hay 4 pestañas: <b>Efectividad</b> (tasa de cierre), <b>Comisiones</b> (USD por agente), <b>Visitas para cerrar</b> (cuántas visitas necesita cada agente) y <b>Tendencia mensual</b>.', side: 'bottom', align: 'start' } },
+      { element: '#tab-efectividad', popover: { title: '🎯 Tab: Efectividad', description: 'El donut muestra la tasa de cierre de cada agente. La tabla tiene el ranking con barra de progreso visual.', side: 'top', align: 'start' } },
+      { popover: { title: '💰 Tab: Comisiones', description: 'Haz clic en "Comisiones" para ver el total generado por cada agente en contratos firmados, ordenado de mayor a menor.', side: 'over', align: 'center' } },
+      { popover: { title: '🔄 Tab: Visitas para cerrar', description: 'Indica cuántas visitas necesita cada agente en promedio para cerrar una venta. Mientras más bajo, más eficiente es el agente.', side: 'over', align: 'center' } },
+      { popover: { title: '✅ ¡Listo!', description: 'Los datos se cargan en tiempo real desde la API. Para ver detalles de agentes individuales usa el filtro en cada pestaña.', side: 'over', align: 'center' } },
+    ],
+  }).drive();
+}
+</script>
+{% endblock %}

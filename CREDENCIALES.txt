@@ -1,0 +1,117 @@
+================================================================
+  SISTEMA DE RESERVAS — CONEXIÓN INMOBILIARIA
+  Credenciales de acceso para pruebas
+  Fecha: 2026-07-30
+================================================================
+
+
+USUARIOS DEL SISTEMA
+----------------------------------------------------------------
+
+  ADMINISTRADOR
+  Usuario    : cesar
+  Contraseña : Admin2024*
+  Email      : cesar.unapucha6741@utc.edu.ec
+  Acceso     : Total (dashboard + panel admin)
+  Admin      : /admin/
+
+  AGENTE
+  Usuario    : agente_paredes
+  Contraseña : Paredes2024*
+  Email      : marco.paredes@conexion.ec
+  Nombre     : Marco Paredes
+  Comisión   : 3.00%
+
+  AGENTE
+  Usuario    : agente_toapanta
+  Contraseña : Toapanta2024*
+  Email      : veronica.toapanta@conexion.ec
+  Nombre     : Verónica Toapanta
+  Comisión   : 4.00%
+
+  COMPRADOR
+  Usuario    : Ponchito
+  Contraseña : Ponchito2024*
+  Email      : cesar.unapucha2005@gmail.com
+  Nombre     : César Tenorio
+
+
+================================================================
+  GUÍA DE DESPLIEGUE EN RENDER (render.com)
+================================================================
+
+PASO 1 — Subir el proyecto a GitHub
+----------------------------------------------------------------
+  1. Crear un repositorio en github.com (puede ser privado)
+  2. Desde la carpeta del proyecto ejecutar:
+
+     git init
+     git add .
+     git commit -m "primer commit"
+     git branch -M main
+     git remote add origin https://github.com/TU_USUARIO/sistema_reservas.git
+     git push -u origin main
+
+
+PASO 2 — Crear la base de datos PostgreSQL en Render
+----------------------------------------------------------------
+  1. Ingresar a https://render.com y crear cuenta (gratis)
+  2. Click en "New +" → "PostgreSQL"
+  3. Nombre: inmobiliaria-db
+  4. Plan: Free
+  5. Click "Create Database"
+  6. Guardar el valor de "Internal Database URL" (se usará en el paso 3)
+
+
+PASO 3 — Crear el Web Service en Render
+----------------------------------------------------------------
+  1. Click en "New +" → "Web Service"
+  2. Conectar el repositorio de GitHub
+  3. Configurar:
+
+     Name        : sistema-reservas
+     Branch      : main
+     Runtime     : Python 3
+     Build Command: ./build.sh
+     Start Command: gunicorn sistema_reservas.wsgi:application --bind 0.0.0.0:$PORT
+     Plan        : Free
+
+  4. En la sección "Environment Variables" agregar:
+
+     SECRET_KEY     → (generar una clave segura, ej: usar https://djecrety.ir/)
+     DJANGO_DEBUG   → False
+     ALLOWED_HOSTS  → TU-SERVICIO.onrender.com
+     DATABASE_URL   → (pegar el "Internal Database URL" del paso 2)
+     EMAIL_HOST_USER     → ponchitoec43@gmail.com
+     EMAIL_HOST_PASSWORD → jfgp irzd ihwf xmod
+
+  5. Click "Create Web Service"
+  6. Render ejecutará build.sh automáticamente (instala deps, collectstatic, migrate)
+
+
+PASO 4 — Crear superusuario en producción
+----------------------------------------------------------------
+  Desde el shell de Render (en la pestaña "Shell" del servicio):
+
+     python manage.py createsuperuser
+
+  O usar el comando para crear usuarios de prueba con las
+  credenciales de la sección superior.
+
+
+NOTAS IMPORTANTES
+----------------------------------------------------------------
+  * El plan Free de Render apaga el servicio tras 15 min sin uso.
+    La primera visita puede tardar ~30 segundos en despertar.
+
+  * La base de datos Free de Render expira a los 90 días.
+    Hacer backup antes con: python manage.py dumpdata > backup.json
+
+  * Para correr localmente (SQLite, sin configuración):
+    python manage.py runserver
+
+  * Para correr localmente con PostgreSQL setear:
+    export DATABASE_URL=postgresql://usuario:clave@localhost:5432/inmobiliaria
+    python manage.py runserver
+
+================================================================

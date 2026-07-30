@@ -1,0 +1,618 @@
+{% extends 'PlantillaPrincipal.html' %}
+{% load static %}
+
+{% block titulo %}Ruta del Día — Conexión Inmobiliaria{% endblock %}
+
+{% block estilos %}
+<style>
+  /* ── Encabezado ─────────────────────────────── */
+  .page-header {
+    background: linear-gradient(135deg, var(--primary) 0%, #1a4fbb 100%);
+    padding: 28px 0 20px;
+    margin-bottom: 28px;
+  }
+  .page-header h1 { color:#fff; font-size:24px; font-weight:700; margin:0; }
+  .page-header p  { color:rgba(255,255,255,.75); margin:4px 0 0; font-size:14px; }
+
+  /* ── Layout ─────────────────────────────────── */
+  .ruta-wrapper { display:flex; gap:24px; align-items:flex-start; }
+  .ruta-sidebar {
+    width:260px; flex-shrink:0; background:#fff;
+    border-radius:14px; box-shadow:0 3px 16px rgba(0,0,0,.08); padding:20px;
+    position:sticky; top:110px;
+  }
+  .ruta-main { flex:1; }
+
+  /* ── Sidebar ─────────────────────────────────── */
+  .sidebar-section { margin-bottom:22px; }
+  .sidebar-section h6 {
+    font-size:11px; font-weight:700; text-transform:uppercase;
+    letter-spacing:.06em; color:var(--primary);
+    border-bottom:2px solid var(--primary); padding-bottom:6px; margin-bottom:12px;
+  }
+  .mini-stat {
+    background:#f8faff; border-radius:8px; padding:10px 14px;
+    margin-bottom:8px; display:flex; justify-content:space-between;
+    align-items:center; font-size:13px;
+  }
+  .mini-stat .val { font-weight:700; font-size:18px; }
+  .hotkey-tip {
+    background:#f0f9ff; border:1.5px solid #bae6fd;
+    border-radius:10px; padding:14px; font-size:13px; color:#0369a1;
+  }
+  .hotkey-tip kbd {
+    background:#0369a1; color:#fff; border-radius:5px;
+    padding:2px 8px; font-size:12px; font-family:monospace; font-weight:700;
+  }
+  .hotkey-tip ul { margin:8px 0 0; padding-left:16px; }
+  .hotkey-tip li { margin-bottom:4px; }
+
+  /* ── Lista sortable ──────────────────────────── */
+  #listaRuta { list-style:none; padding:0; margin:0; }
+
+  .visita-item {
+    background:#fff; border-radius:14px;
+    box-shadow:0 3px 14px rgba(0,0,0,.08);
+    margin-bottom:14px; overflow:hidden;
+    transition:box-shadow .2s, transform .15s;
+    cursor:grab;
+    border-left:5px solid var(--primary);
+    display:flex; align-items:stretch;
+  }
+  .visita-item:active { cursor:grabbing; }
+  .visita-item.ui-sortable-helper {
+    box-shadow:0 12px 40px rgba(0,0,0,.18);
+    transform:scale(1.02);
+    cursor:grabbing;
+  }
+  .visita-item.ui-sortable-placeholder {
+    visibility:visible !important;
+    background:repeating-linear-gradient(
+      135deg, #f0f4ff, #f0f4ff 10px, #e8edf8 10px, #e8edf8 20px
+    );
+    border:2px dashed var(--primary);
+    border-left:5px solid var(--primary);
+    border-radius:14px;
+    height:90px;
+  }
+
+  /* Colores por estado */
+  .visita-item.est-pendiente  { border-left-color:#3b82f6; }
+  .visita-item.est-confirmada { border-left-color:#22c55e; }
+  .visita-item.est-realizada  { border-left-color:#6b7280; }
+  .visita-item.est-cancelada  { border-left-color:#ef4444; }
+  .visita-item.est-no_asistio { border-left-color:#f97316; }
+
+  /* Handle de arrastre */
+  .drag-handle {
+    width:40px; display:flex; align-items:center; justify-content:center;
+    color:#c0c8d8; font-size:18px; flex-shrink:0;
+    background:#f8faff; border-right:1px solid #f0f3f8;
+  }
+  .drag-handle:hover { color:var(--primary); }
+
+  /* Número de orden */
+  .orden-badge {
+    width:36px; height:36px; border-radius:50%;
+    background:var(--primary); color:#fff;
+    display:flex; align-items:center; justify-content:center;
+    font-weight:700; font-size:14px; flex-shrink:0;
+  }
+
+  /* Cuerpo de la tarjeta */
+  .visita-body {
+    flex:1; padding:16px 18px;
+    display:flex; align-items:center; gap:16px;
+  }
+  .visita-info { flex:1; min-width:0; }
+  .visita-info .propiedad {
+    font-weight:700; font-size:15px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .visita-info .detalles {
+    font-size:13px; color:#6b7280; margin-top:3px;
+    display:flex; flex-wrap:wrap; gap:10px;
+  }
+  .visita-info .detalles span { display:flex; align-items:center; gap:4px; }
+
+  /* Acciones */
+  .visita-acciones {
+    display:flex; flex-direction:column; gap:6px;
+    align-items:flex-end; flex-shrink:0;
+  }
+  .badge-estado {
+    font-size:11px; padding:3px 10px; border-radius:20px; font-weight:600;
+    white-space:nowrap;
+  }
+  .badge-pendiente  { background:#dbeafe; color:#1d4ed8; }
+  .badge-confirmada { background:#dcfce7; color:#16a34a; }
+  .badge-realizada  { background:#f3f4f6; color:#374151; }
+  .badge-cancelada  { background:#fee2e2; color:#dc2626; }
+  .badge-no_asistio { background:#ffedd5; color:#c2410c; }
+
+  .btn-confirmar {
+    font-size:12px; padding:5px 12px; border-radius:6px;
+    text-transform:none; letter-spacing:normal;
+    border:1.5px solid #22c55e; color:#16a34a; background:transparent;
+    white-space:nowrap; transition:all .2s;
+  }
+  .btn-confirmar:hover, .visita-item.seleccionada .btn-confirmar {
+    background:#22c55e; color:#fff;
+  }
+  .btn-confirmar.ya-confirmado {
+    border-color:#6b7280; color:#6b7280; pointer-events:none;
+  }
+
+  /* Resaltado de ítem seleccionado */
+  .visita-item.seleccionada {
+    box-shadow:0 0 0 3px rgba(37,99,235,.3), 0 6px 20px rgba(0,0,0,.1);
+  }
+
+  /* Toast de notificación */
+  .toast-ruta {
+    position:fixed; bottom:28px; right:28px; z-index:9999;
+    background:#1e293b; color:#fff; border-radius:10px;
+    padding:12px 20px; font-size:14px; font-weight:500;
+    display:flex; align-items:center; gap:10px;
+    box-shadow:0 8px 24px rgba(0,0,0,.2);
+    transform:translateY(80px); opacity:0;
+    transition:all .35s cubic-bezier(.175,.885,.32,1.275);
+    pointer-events:none;
+  }
+  .toast-ruta.show { transform:translateY(0); opacity:1; }
+  .toast-ruta .ti  { font-size:18px; }
+  .toast-ruta.ok   { background:#16a34a; }
+  .toast-ruta.info { background:#2563eb; }
+  .toast-ruta.warn { background:#ca8a04; }
+
+  /* Estado vacío */
+  .empty-state { text-align:center; padding:60px 20px; color:#9ca3af; }
+  .empty-state i { font-size:56px; margin-bottom:16px; display:block; }
+
+  @media (max-width:768px) {
+    .ruta-wrapper { flex-direction:column; }
+    .ruta-sidebar { width:100%; position:static; }
+  }
+</style>
+{% endblock %}
+
+
+{% block contenido %}
+
+<!-- Encabezado -->
+<div class="page-header">
+  <div class="container">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+      <div>
+        <h1><i class="lni lni-map me-2"></i>Ruta del Día</h1>
+        <p>Arrastra las tarjetas para reordenar · Tecla <kbd style="background:rgba(255,255,255,.25);color:#fff;border-radius:4px;padding:1px 6px;font-size:12px;">C</kbd> para confirmar asistencia</p>
+      </div>
+      <!-- Selector de fecha -->
+      <form method="GET" class="d-flex align-items-center gap-2">
+        <input type="date" name="fecha" value="{{ fecha|date:'Y-m-d' }}"
+          class="form-control form-control-sm"
+          style="border-radius:8px;border:2px solid rgba(255,255,255,.4);background:rgba(255,255,255,.15);color:#fff;width:160px;"
+          onchange="this.form.submit()">
+        <a href="{% url 'calendario' %}" class="btn btn-sm"
+          style="border:2px solid rgba(255,255,255,.5);color:#fff;border-radius:8px;text-transform:none;letter-spacing:normal;white-space:nowrap;">
+          <i class="lni lni-calendar me-1"></i>Calendario
+        </a>
+        <button class="btn-guia" onclick="iniciarTour()">
+          <i class="lni lni-graduation"></i> Guía
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="container pb-5">
+  <div class="ruta-wrapper">
+
+    <!-- ── Sidebar ─────────────────────────────── -->
+    <aside class="ruta-sidebar">
+
+      <!-- Fecha activa -->
+      <div class="sidebar-section">
+        <h6>Fecha activa</h6>
+        <div style="font-size:20px;font-weight:700;color:var(--primary);">
+          {{ fecha|date:"d" }}
+        </div>
+        <div style="font-size:13px;color:#6b7280;">{{ fecha|date:"l, F Y" }}</div>
+      </div>
+
+      <!-- Estadísticas del día -->
+      <div class="sidebar-section">
+        <h6>Resumen del día</h6>
+        <div class="mini-stat">
+          <span>Total visitas</span>
+          <span class="val" style="color:var(--primary);">{{ visitas|length }}</span>
+        </div>
+        <div class="mini-stat">
+          <span>Confirmadas</span>
+          <span class="val" style="color:#22c55e;" id="cntConfirmadas">
+            {{ visitas|length }}
+          </span>
+        </div>
+        <div class="mini-stat">
+          <span>Pendientes</span>
+          <span class="val" style="color:#3b82f6;" id="cntPendientes">0</span>
+        </div>
+      </div>
+
+      <!-- Instrucciones Hotkeys (solo para admin/agente que pueden reordenar) -->
+      {% if rol != 'comprador' %}
+      <div class="sidebar-section">
+        <h6>Atajos de teclado</h6>
+        <div class="hotkey-tip">
+          <div class="fw-semibold mb-1">Con una visita seleccionada:</div>
+          <ul>
+            <li><kbd>C</kbd> Confirmar asistencia</li>
+            <li><kbd>↑</kbd> Subir en la ruta</li>
+            <li><kbd>↓</kbd> Bajar en la ruta</li>
+            <li><kbd>Esc</kbd> Deseleccionar</li>
+          </ul>
+          <div class="mt-2" style="font-size:12px;color:#0369a1;">
+            Haz clic en una tarjeta para seleccionarla.
+          </div>
+        </div>
+      </div>
+
+      <!-- Botón guardar orden manual -->
+      <button class="btn primary-btn w-100"
+        style="text-transform:none;letter-spacing:normal;font-size:14px;border-radius:8px;"
+        onclick="guardarOrden()">
+        <i class="lni lni-save me-2"></i>Guardar orden
+      </button>
+      {% else %}
+      <div class="alert alert-info py-2 px-3" style="font-size:13px;border-radius:8px;">
+        <i class="lni lni-information me-1"></i>Vista de solo lectura de tus visitas del día.
+      </div>
+      {% endif %}
+
+    </aside>
+
+    <!-- ── Lista de visitas ───────────────────── -->
+    <div class="ruta-main">
+
+      {% if visitas %}
+
+      <!-- Indicador de guardado automático -->
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <p class="text-muted mb-0" style="font-size:13px;">
+          <i class="lni lni-information me-1"></i>
+          Arrastra las tarjetas para cambiar el orden de la ruta.
+          El orden se guarda automáticamente al soltar.
+        </p>
+        <span id="estadoGuardado" style="font-size:12px;color:#22c55e;display:none;">
+          <i class="lni lni-checkmark-circle me-1"></i>Guardado
+        </span>
+      </div>
+
+      <ul id="listaRuta">
+        {% for v in visitas %}
+        <li class="visita-item est-{{ v.estado }}"
+            data-id="{{ v.pk }}"
+            data-estado="{{ v.estado }}"
+            data-confirmado="{{ v.confirmado_por_cliente|yesno:'true,false' }}"
+            onclick="seleccionarItem(this)">
+
+          <!-- Handle de arrastre (solo admin/agente) -->
+          {% if rol != 'comprador' %}
+          <div class="drag-handle" title="Arrastra para reordenar">
+            <i class="lni lni-menu"></i>
+          </div>
+          {% endif %}
+
+          <!-- Cuerpo -->
+          <div class="visita-body">
+
+            <!-- Número de orden -->
+            <div class="orden-badge">{{ v.orden_ruta }}</div>
+
+            <!-- Información -->
+            <div class="visita-info">
+              <div class="propiedad">{{ v.propiedad.titulo }}</div>
+              <div class="detalles">
+                <span><i class="lni lni-map-marker"></i>{{ v.propiedad.ciudad }}{% if v.propiedad.sector %}, {{ v.propiedad.sector }}{% endif %}</span>
+                <span><i class="lni lni-user"></i>{{ v.comprador.user.get_full_name }}</span>
+                <span><i class="lni lni-clock"></i>{{ v.fecha_hora|date:"H:i" }} ({{ v.duracion_min }} min)</span>
+                {% if v.agente %}
+                <span><i class="lni lni-briefcase"></i>{{ v.agente.nombre_completo }}</span>
+                {% endif %}
+              </div>
+              {% if v.notas %}
+              <div style="font-size:12px;color:#9ca3af;margin-top:4px;">
+                <i class="lni lni-pencil-alt me-1"></i>{{ v.notas|truncatechars:60 }}
+              </div>
+              {% endif %}
+            </div>
+
+            <!-- Acciones -->
+            <div class="visita-acciones">
+              <span class="badge-estado badge-{{ v.estado }}" id="badge-{{ v.pk }}">
+                {{ v.get_estado_display }}
+              </span>
+              {% if rol != 'comprador' %}
+              <button
+                class="btn-confirmar {% if v.confirmado_por_cliente %}ya-confirmado{% endif %}"
+                id="btnConf-{{ v.pk }}"
+                onclick="event.stopPropagation(); confirmarAsistencia({{ v.pk }})"
+                title="Confirmar asistencia (tecla C)">
+                {% if v.confirmado_por_cliente %}
+                  <i class="lni lni-checkmark-circle me-1"></i>Confirmado
+                {% else %}
+                  <i class="lni lni-check-box me-1"></i>Confirmar
+                {% endif %}
+              </button>
+              {% endif %}
+            </div>
+
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+
+      {% else %}
+      <div class="empty-state">
+        <i class="lni lni-calendar"></i>
+        <h5>Sin visitas para este día</h5>
+        <p>No hay visitas programadas para el <strong>{{ fecha|date:"d/m/Y" }}</strong>.</p>
+        {% if rol != 'comprador' %}
+        <a href="{% url 'calendario' %}" class="btn primary-btn btn-sm"
+          style="text-transform:none;letter-spacing:normal;margin-top:12px;">
+          <i class="lni lni-plus me-1"></i>Agendar visita
+        </a>
+        {% endif %}
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+</div>
+
+<!-- Toast de notificación -->
+<div class="toast-ruta" id="toastRuta">
+  <span class="ti" id="toastIcon">✓</span>
+  <span id="toastMsg">Guardado</span>
+</div>
+
+{% endblock %}
+
+
+{% block scripts %}
+<!-- jQuery (requerido por jQuery UI) -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+<!-- jQuery UI Sortable -->
+<script src="https://cdn.jsdelivr.net/npm/jquery-ui-dist@1.13.2/jquery-ui.min.js"></script>
+<!-- Hotkeys.js -->
+<script src="https://cdn.jsdelivr.net/npm/hotkeys-js@3.13.7/dist/hotkeys.min.js"></script>
+
+<script>
+  const CSRF             = '{{ csrf_token }}';
+  const URL_REORDENAR    = '{% url "reordenar_ruta" %}';
+  const URL_CONFIRMAR    = (pk) => `/visitas/${pk}/confirmar/`;
+  const ROL_USUARIO      = '{{ rol }}';
+  const ES_SOLO_LECTURA  = ROL_USUARIO === 'comprador';
+  let   itemSeleccionado = null;
+
+  // ── jQuery UI Sortable ────────────────────────────────
+  $(function () {
+    if (!ES_SOLO_LECTURA) {
+      $('#listaRuta').sortable({
+        handle:      '.drag-handle',
+        axis:        'y',
+        placeholder: 'visita-item ui-sortable-placeholder',
+        tolerance:   'pointer',
+        animation:   150,
+
+        start: function (e, ui) {
+          ui.placeholder.height(ui.item.outerHeight());
+        },
+
+        // Guardar automáticamente al soltar
+        stop: function () {
+          actualizarNumerosOrden();
+          guardarOrden(true);   // true = silencioso (sin toast grande)
+        },
+      });
+      $('#listaRuta').disableSelection();
+    }
+
+    // Calcular contadores iniciales
+    actualizarContadores();
+  });
+
+  // ── Actualizar números de orden visibles ──────────────
+  function actualizarNumerosOrden() {
+    $('#listaRuta .visita-item').each(function (i) {
+      $(this).find('.orden-badge').text(i + 1);
+    });
+  }
+
+  // ── Guardar orden via AJAX ────────────────────────────
+  async function guardarOrden(silencioso = false) {
+    const orden = $('#listaRuta .visita-item').map(function () {
+      return parseInt($(this).data('id'));
+    }).get();
+
+    try {
+      const resp = await fetch(URL_REORDENAR, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+        body:    JSON.stringify({ orden }),
+      });
+      const data = await resp.json();
+      if (data.ok) {
+        mostrarEstadoGuardado();
+        if (!silencioso) mostrarToast('Orden guardado correctamente', 'ok', '✓');
+      } else {
+        mostrarToast('Error al guardar el orden', 'warn', '⚠');
+      }
+    } catch {
+      mostrarToast('Error de conexión', 'warn', '⚠');
+    }
+  }
+
+  // ── Seleccionar ítem con clic ─────────────────────────
+  function seleccionarItem(el) {
+    // Deseleccionar anterior
+    if (itemSeleccionado) {
+      itemSeleccionado.classList.remove('seleccionada');
+    }
+    if (itemSeleccionado === el) {
+      itemSeleccionado = null;
+      return;
+    }
+    el.classList.add('seleccionada');
+    itemSeleccionado = el;
+  }
+
+  // ── Confirmar asistencia via AJAX ─────────────────────
+  async function confirmarAsistencia(pk) {
+    try {
+      const resp = await fetch(URL_CONFIRMAR(pk), {
+        method:  'PATCH',
+        headers: { 'X-CSRFToken': CSRF },
+      });
+      const data = await resp.json();
+      if (data.ok) {
+        // Actualizar badge de estado
+        const badge = document.getElementById(`badge-${pk}`);
+        if (badge) {
+          badge.className = 'badge-estado badge-confirmada';
+          badge.textContent = 'Confirmada';
+        }
+        // Actualizar botón
+        const btn = document.getElementById(`btnConf-${pk}`);
+        if (btn) {
+          btn.classList.add('ya-confirmado');
+          btn.innerHTML = '<i class="lni lni-checkmark-circle me-1"></i>Confirmado';
+        }
+        // Actualizar data del ítem
+        const item = document.querySelector(`[data-id="${pk}"]`);
+        if (item) {
+          item.dataset.confirmado = 'true';
+          item.dataset.estado     = 'confirmada';
+          item.className = item.className.replace(/est-\w+/, 'est-confirmada');
+        }
+        actualizarContadores();
+        mostrarToast('Asistencia confirmada', 'ok', '✓');
+      } else {
+        mostrarToast('Error al confirmar', 'warn', '⚠');
+      }
+    } catch {
+      mostrarToast('Error de conexión', 'warn', '⚠');
+    }
+  }
+
+  // ── Contadores del sidebar ────────────────────────────
+  function actualizarContadores() {
+    let confirmadas = 0, pendientes = 0;
+    document.querySelectorAll('#listaRuta .visita-item').forEach(el => {
+      if (el.dataset.estado === 'confirmada') confirmadas++;
+      if (el.dataset.estado === 'pendiente')  pendientes++;
+    });
+    const ec = document.getElementById('cntConfirmadas');
+    const ep = document.getElementById('cntPendientes');
+    if (ec) ec.textContent = confirmadas;
+    if (ep) ep.textContent = pendientes;
+  }
+
+  // ── Indicador "Guardado" ──────────────────────────────
+  function mostrarEstadoGuardado() {
+    const el = document.getElementById('estadoGuardado');
+    if (!el) return;
+    el.style.display = 'inline';
+    setTimeout(() => el.style.display = 'none', 2500);
+  }
+
+  // ── Toast de notificación ─────────────────────────────
+  let toastTimer;
+  function mostrarToast(msg, tipo = 'ok', icono = '✓') {
+    const t  = document.getElementById('toastRuta');
+    const tm = document.getElementById('toastMsg');
+    const ti = document.getElementById('toastIcon');
+    t.className  = `toast-ruta ${tipo}`;
+    tm.textContent = msg;
+    ti.textContent = icono;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+  }
+
+  // ══════════════════════════════════════════════════════
+  // HOTKEYS-JS — Atajos de teclado
+  // ══════════════════════════════════════════════════════
+
+  // C → Confirmar asistencia del ítem seleccionado
+  hotkeys('c', function (e) {
+    e.preventDefault();
+    if (!itemSeleccionado) {
+      mostrarToast('Selecciona una visita primero', 'info', 'ℹ');
+      return;
+    }
+    const pk = itemSeleccionado.dataset.id;
+    if (itemSeleccionado.dataset.confirmado === 'true') {
+      mostrarToast('Esta visita ya está confirmada', 'info', 'ℹ');
+      return;
+    }
+    confirmarAsistencia(parseInt(pk));
+  });
+
+  // Flecha arriba → subir ítem en la ruta
+  hotkeys('up', function (e) {
+    e.preventDefault();
+    if (!itemSeleccionado) return;
+    const $item = $(itemSeleccionado);
+    const $prev = $item.prev('.visita-item');
+    if ($prev.length) {
+      $item.insertBefore($prev);
+      actualizarNumerosOrden();
+      guardarOrden(true);
+      mostrarToast('Visita subida en la ruta', 'info', '↑');
+    }
+  });
+
+  // Flecha abajo → bajar ítem en la ruta
+  hotkeys('down', function (e) {
+    e.preventDefault();
+    if (!itemSeleccionado) return;
+    const $item = $(itemSeleccionado);
+    const $next = $item.next('.visita-item');
+    if ($next.length) {
+      $item.insertAfter($next);
+      actualizarNumerosOrden();
+      guardarOrden(true);
+      mostrarToast('Visita bajada en la ruta', 'info', '↓');
+    }
+  });
+
+  // Escape → deseleccionar
+  hotkeys('esc', function () {
+    if (itemSeleccionado) {
+      itemSeleccionado.classList.remove('seleccionada');
+      itemSeleccionado = null;
+    }
+  });
+</script>
+
+<script>
+function iniciarTour() {
+  const { driver } = window.driver.js;
+  driver({
+    showProgress: true, animate: true, smoothScroll: true, allowClose: true,
+    stagePadding: 8, stageRadius: 10,
+    nextBtnText: 'Siguiente →', prevBtnText: '← Anterior', doneBtnText: '¡Entendido! ✓',
+    steps: [
+      { popover: { title: '🗺️ Ruta del Día', description: 'Organiza el orden de visitas que realizarás durante el día. Puedes reordenarlas arrastrando o usando el teclado.', side: 'over', align: 'center' } },
+      { element: 'input[name="fecha"]', popover: { title: '📆 Selector de fecha', description: 'Cambia la fecha para ver las visitas de otro día. Al seleccionar una fecha, la página se actualiza automáticamente.', side: 'bottom', align: 'start' } },
+      { element: '.ruta-sidebar', popover: { title: '📊 Panel lateral', description: 'Muestra el resumen del día: total de visitas, cuántas están confirmadas y cuántas pendientes. También tiene los atajos de teclado disponibles.', side: 'right', align: 'start' } },
+      { element: '.hotkey-tip', popover: { title: '⌨️ Atajos de teclado', description: 'Selecciona una tarjeta con clic y luego usa: <b>C</b> para confirmar asistencia, <b>↑↓</b> para mover en la ruta, <b>Esc</b> para deseleccionar.', side: 'right', align: 'start' } },
+      { element: '#listaRuta', popover: { title: '🃏 Lista de visitas ordenable', description: 'Arrastra el ícono de 3 líneas (⋮⋮) de cada tarjeta para reordenar. El orden se guarda automáticamente al soltar.', side: 'left', align: 'start' } },
+      { popover: { title: '✅ Confirmar asistencia', description: 'Cuando el cliente llegue, selecciona su tarjeta y presiona <b>C</b>, o haz clic en el botón "Confirmar" de la tarjeta. El estado cambiará a "Confirmada".', side: 'over', align: 'center' } },
+      { popover: { title: '✅ ¡Listo!', description: 'La ruta se actualiza en tiempo real. Usa el botón "Guardar orden" para forzar el guardado manual si lo necesitas.', side: 'over', align: 'center' } },
+    ],
+  }).drive();
+}
+</script>
+{% endblock %}

@@ -1,0 +1,127 @@
+{% extends 'PlantillaPrincipal.html' %}
+{% load static %}
+
+{% block titulo %}Editar Comprador — Conexión Inmobiliaria{% endblock %}
+
+{% block estilos %}
+<style>
+  .page-header { background:linear-gradient(135deg,var(--primary) 0%,#1a4fbb 100%); padding:32px 0 24px; margin-bottom:32px; }
+  .page-header h1 { color:#fff; font-size:26px; font-weight:700; margin:0; }
+  .form-card { background:#fff; border-radius:14px; box-shadow:0 3px 20px rgba(0,0,0,.08); padding:32px; margin-bottom:24px; }
+  .section-title { font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--primary); border-bottom:2px solid var(--primary); padding-bottom:6px; margin-bottom:20px; }
+  .form-label { font-weight:600; font-size:13px; color:#374151; margin-bottom:5px; }
+  .form-control, .form-select { border-radius:8px; border:1.5px solid #e0e0e0; padding:10px 14px; font-size:14px; transition:border-color .2s; }
+  .form-control:focus, .form-select:focus { border-color:var(--primary); box-shadow:0 0 0 3px rgba(37,99,235,.1); }
+  .btn-guardar { text-transform:none; letter-spacing:normal; padding:11px 32px; font-size:15px; border-radius:8px; }
+  .btn-cancelar { text-transform:none; letter-spacing:normal; padding:11px 24px; font-size:15px; border-radius:8px; border:1.5px solid #e0e0e0; color:#6b7280; }
+</style>
+{% endblock %}
+
+{% block contenido %}
+<div class="page-header">
+  <div class="container">
+    <div class="d-flex align-items-center gap-3">
+      <a href="{% url 'compradores_lista' %}" style="color:rgba(255,255,255,.75);font-size:22px;">
+        <i class="lni lni-arrow-left"></i>
+      </a>
+      <div>
+        <h1>Editar Comprador</h1>
+        <p style="color:rgba(255,255,255,.75);margin:4px 0 0;font-size:14px;">
+          Modifica los datos del cliente
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="container pb-5">
+  {% if messages %}
+    {% for msg in messages %}
+      <div class="alert alert-{% if msg.tags == 'error' %}danger{% else %}{{ msg.tags }}{% endif %} alert-dismissible fade show mb-3">
+        {{ msg }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    {% endfor %}
+  {% endif %}
+
+  <form method="POST" novalidate>
+    {% csrf_token %}
+    <div class="row g-4">
+      <div class="col-lg-8">
+
+        <div class="form-card">
+          <p class="section-title"><i class="lni lni-user me-2"></i>Datos Personales</p>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Nombre</label>
+              <input type="text" name="nombre" class="form-control"
+                value="{{ comprador.user.first_name }}" required>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Apellido</label>
+              <input type="text" name="apellido" class="form-control"
+                value="{{ comprador.user.last_name }}" required>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Cédula</label>
+              <input type="text" name="cedula" class="form-control"
+                value="{{ comprador.cedula }}" readonly>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Teléfono</label>
+              <input type="tel" name="telefono" class="form-control"
+                value="{{ comprador.telefono }}">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Correo electrónico</label>
+              <input type="email" name="email" class="form-control"
+                value="{{ comprador.user.email }}">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Presupuesto máximo (USD)</label>
+              <input type="number" name="presupuesto_max" class="form-control" min="0" step="0.01"
+                value="{{ comprador.presupuesto_max|default:'' }}" placeholder="0.00">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-card">
+          <p class="section-title"><i class="lni lni-cog me-2"></i>Asignación y Estado</p>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Estado</label>
+              <select name="estado" class="form-select">
+                {% for val, label in estado_choices %}
+                  <option value="{{ val }}" {% if comprador.estado == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Agente asignado</label>
+              <select name="agente" class="form-select">
+                <option value="">Sin agente</option>
+                {% for a in agentes %}
+                  <option value="{{ a.pk }}" {% if comprador.agente and comprador.agente.pk == a.pk %}selected{% endif %}>
+                    {{ a.nombre_completo }}
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="col-lg-4">
+        <div class="form-card">
+          <button type="submit" class="btn primary-btn btn-guardar w-100 mb-2">
+            <i class="lni lni-save me-2"></i>Guardar cambios
+          </button>
+          <a href="{% url 'compradores_lista' %}" class="btn btn-cancelar w-100 text-center">
+            Cancelar
+          </a>
+        </div>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}

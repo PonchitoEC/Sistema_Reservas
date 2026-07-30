@@ -1,0 +1,348 @@
+{% extends 'PlantillaPrincipal.html' %}
+{% load static %}
+
+{% block titulo %}{{ accion }} Usuario — Conexión Inmobiliaria{% endblock %}
+
+{% block estilos %}
+<style>
+  .page-header { background:linear-gradient(135deg,var(--primary) 0%,#1a4fbb 100%); padding:32px 0 24px; margin-bottom:32px; }
+  .page-header h1 { color:#fff; font-size:26px; font-weight:700; margin:0; }
+  .form-card { background:#fff; border-radius:14px; box-shadow:0 3px 20px rgba(0,0,0,.08); padding:32px; margin-bottom:24px; }
+  .section-title { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--primary); border-bottom:2px solid var(--primary); padding-bottom:6px; margin-bottom:20px; }
+  .form-label { font-weight:600; font-size:13px; color:#374151; margin-bottom:5px; }
+  .form-control, .form-select { border-radius:8px; border:1.5px solid #e0e0e0; padding:10px 14px; font-size:14px; transition:border-color .2s; }
+  .form-control:focus, .form-select:focus { border-color:var(--primary); box-shadow:0 0 0 3px rgba(37,99,235,.1); }
+  .btn-guardar  { text-transform:none; letter-spacing:normal; padding:11px 32px; font-size:15px; border-radius:8px; }
+  .btn-cancelar { text-transform:none; letter-spacing:normal; padding:11px 24px; font-size:15px; border-radius:8px; border:1.5px solid #e0e0e0; color:#6b7280; }
+
+  /* Tarjetas de rol */
+  .rol-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; }
+  .rol-card {
+    border:2px solid #e0e0e0; border-radius:10px; padding:16px 12px;
+    text-align:center; cursor:pointer; transition:all .2s; position:relative;
+  }
+  .rol-card:hover { border-color:var(--primary); background:#f0f5ff; }
+  .rol-card input[type="radio"] { position:absolute; opacity:0; pointer-events:none; }
+  .rol-card.selected { border-color:var(--primary); background:#eff6ff; }
+  .rol-card .rol-icon { font-size:28px; margin-bottom:8px; display:block; }
+  .rol-card .rol-label { font-size:13px; font-weight:700; color:#374151; }
+  .rol-card .rol-desc  { font-size:11px; color:#6b7280; margin-top:3px; }
+  .rol-card.rol-administrador.selected { border-color:#1d4ed8; background:#eff6ff; }
+  .rol-card.rol-agente.selected        { border-color:#16a34a; background:#f0fdf4; }
+  .rol-card.rol-comprador.selected     { border-color:#b45309; background:#fffbeb; }
+
+  /* Toggle activo */
+  .toggle-wrapper { display:flex; align-items:center; gap:12px; }
+  .form-check-input { width:44px !important; height:22px; cursor:pointer; }
+  .form-check-input:checked { background-color:var(--primary); border-color:var(--primary); }
+
+  /* Info usuario actual al editar */
+  .user-info-badge {
+    background:#f8faff; border:1.5px solid #dbeafe; border-radius:10px;
+    padding:14px 18px; display:flex; align-items:center; gap:14px; margin-bottom:24px;
+  }
+  .user-avatar {
+    width:48px; height:48px; border-radius:50%;
+    background:linear-gradient(135deg,var(--primary),#1a4fbb);
+    color:#fff; display:flex; align-items:center; justify-content:center;
+    font-size:18px; font-weight:700; flex-shrink:0;
+  }
+</style>
+{% endblock %}
+
+{% block contenido %}
+<div class="page-header">
+  <div class="container">
+    <div class="d-flex align-items-center gap-3">
+      <a href="{% url 'usuarios_lista' %}" style="color:rgba(255,255,255,.75);font-size:22px;">
+        <i class="lni lni-arrow-left"></i>
+      </a>
+      <div>
+        <h1>{{ accion }} Usuario</h1>
+        <p style="color:rgba(255,255,255,.75);margin:4px 0 0;font-size:14px;">
+          {% if accion == 'Editar' %}Modifica los datos y rol del usuario
+          {% else %}Registra un nuevo usuario en el sistema{% endif %}
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="container pb-5">
+
+  {% if messages %}
+    {% for msg in messages %}
+      <div class="alert alert-{% if msg.tags == 'error' %}danger{% else %}{{ msg.tags }}{% endif %} alert-dismissible fade show mb-3">
+        {{ msg }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    {% endfor %}
+  {% endif %}
+
+  {% if accion == 'Editar' and usuario %}
+  <div class="user-info-badge">
+    <div class="user-avatar">
+      {{ usuario.first_name|first|upper|default:usuario.username|first|upper }}{{ usuario.last_name|first|upper }}
+    </div>
+    <div>
+      <div style="font-weight:700;font-size:15px;">{{ usuario.get_full_name|default:usuario.username }}</div>
+      <div style="font-size:13px;color:#6b7280;">
+        <code>{{ usuario.username }}</code> · Miembro desde {{ usuario.date_joined|date:"d/m/Y" }}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <form method="POST" novalidate id="formUsuario">
+    {% csrf_token %}
+    <div class="row g-4">
+
+      <!-- ── Columna principal ──────────────────── -->
+      <div class="col-lg-8">
+
+        <!-- Datos personales -->
+        <div class="form-card" id="seccion-datos">
+          <p class="section-title"><i class="lni lni-user me-2"></i>Datos personales</p>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Nombre <span class="text-danger">*</span></label>
+              <input type="text" name="nombre" class="form-control" required
+                placeholder="Ej: Juan"
+                value="{{ val_nombre }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Apellido <span class="text-danger">*</span></label>
+              <input type="text" name="apellido" class="form-control" required
+                placeholder="Ej: Pérez"
+                value="{{ val_apellido }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Nombre de usuario <span class="text-danger">*</span></label>
+              {% if accion == 'Editar' %}
+              <input type="text" name="username" class="form-control" required
+                placeholder="Ej: juan.perez"
+                value="{{ val_username|default:usuario.username }}">
+              <small class="text-muted" style="font-size:11px;">El administrador puede modificar el nombre de usuario si es necesario.</small>
+              {% else %}
+              <input type="text" name="username" class="form-control" required
+                placeholder="Ej: juan.perez"
+                value="{{ val_username }}">
+              {% endif %}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Correo electrónico</label>
+              <input type="email" name="email" class="form-control"
+                placeholder="correo@ejemplo.com"
+                value="{{ val_email }}">
+            </div>
+          </div>
+        </div>
+
+        <!-- Datos de perfil (cédula / teléfono) — visible para Agente y Comprador al crear -->
+        {% if accion == 'Crear' %}
+        <div class="form-card d-none" id="seccion-perfil">
+          <p class="section-title"><i class="lni lni-id-card me-2"></i>Datos de perfil</p>
+          <p class="text-muted" style="font-size:12px;margin-bottom:16px;">
+            Requeridos para crear el perfil de <span id="lblTipoPerfil">agente / comprador</span> en el sistema.
+          </p>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Cédula <span class="text-danger" id="lblCedulaReq">*</span></label>
+              <input type="text" name="cedula" class="form-control"
+                id="campo-cedula"
+                placeholder="0000000000"
+                maxlength="13"
+                value="{{ datos.cedula|default:'' }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Teléfono</label>
+              <input type="text" name="telefono" class="form-control"
+                placeholder="0999999999"
+                maxlength="20"
+                value="{{ datos.telefono|default:'' }}">
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- Contraseña -->
+        <div class="form-card" id="seccion-password">
+          <p class="section-title"><i class="lni lni-lock me-2"></i>Contraseña
+            {% if accion == 'Editar' %}
+            <span style="font-weight:400;font-size:11px;color:#6b7280;text-transform:none;letter-spacing:normal;"> — deja en blanco para no cambiar</span>
+            {% endif %}
+          </p>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">
+                {% if accion == 'Crear' %}Contraseña <span class="text-danger">*</span>
+                {% else %}Nueva contraseña{% endif %}
+              </label>
+              <input type="password" name="password1" class="form-control"
+                id="campo-password1"
+                placeholder="Mínimo 6 caracteres"
+                {% if accion == 'Crear' %}required{% endif %}>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">
+                {% if accion == 'Crear' %}Confirmar contraseña <span class="text-danger">*</span>
+                {% else %}Confirmar nueva contraseña{% endif %}
+              </label>
+              <input type="password" name="password2" class="form-control"
+                id="campo-password2"
+                placeholder="Repite la contraseña"
+                {% if accion == 'Crear' %}required{% endif %}>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ── Columna lateral ────────────────────── -->
+      <div class="col-lg-4">
+
+        <!-- Rol -->
+        <div class="form-card" id="seccion-rol">
+          <p class="section-title"><i class="lni lni-shield me-2"></i>Rol del usuario</p>
+          <div class="rol-cards">
+
+            <label class="rol-card rol-administrador {% if datos.rol == 'administrador' or rol_actual == 'administrador' %}selected{% endif %}"
+              onclick="seleccionarRol(this, 'administrador')">
+              <input type="radio" name="rol" value="administrador"
+                {% if datos.rol == 'administrador' or rol_actual == 'administrador' %}checked{% endif %}>
+              <span class="rol-icon">👑</span>
+              <div class="rol-label">Administrador</div>
+              <div class="rol-desc">Acceso total al sistema</div>
+            </label>
+
+            <label class="rol-card rol-agente {% if datos.rol == 'Agente' or rol_actual == 'agente' %}selected{% endif %}"
+              onclick="seleccionarRol(this, 'Agente')">
+              <input type="radio" name="rol" value="Agente"
+                {% if datos.rol == 'Agente' or rol_actual == 'agente' %}checked{% endif %}>
+              <span class="rol-icon">💼</span>
+              <div class="rol-label">Agente</div>
+              <div class="rol-desc">Gestiona propiedades y compradores propios</div>
+            </label>
+
+            <label class="rol-card rol-comprador {% if datos.rol == 'Comprador' or rol_actual == 'comprador' %}selected{% endif %}"
+              onclick="seleccionarRol(this, 'Comprador')">
+              <input type="radio" name="rol" value="Comprador"
+                {% if datos.rol == 'Comprador' or rol_actual == 'comprador' %}checked{% endif %}>
+              <span class="rol-icon">🏠</span>
+              <div class="rol-label">Comprador</div>
+              <div class="rol-desc">Solo visualiza y agenda sus visitas</div>
+            </label>
+
+          </div>
+          <p class="text-muted mt-3" style="font-size:12px;">
+            <i class="lni lni-information me-1"></i>
+            El rol determina las secciones y acciones disponibles para el usuario.
+          </p>
+        </div>
+
+        <!-- Estado -->
+        <div class="form-card" id="seccion-estado">
+          <p class="section-title"><i class="lni lni-checkmark-circle me-2"></i>Estado de la cuenta</p>
+          <div class="toggle-wrapper">
+            <div class="form-check form-switch mb-0">
+              <input class="form-check-input" type="checkbox" id="chkActivo"
+                name="activo" value="1"
+                {% if accion == 'Crear' %}checked
+                {% elif datos.activo %}checked
+                {% elif usuario and usuario.is_active %}checked
+                {% endif %}>
+            </div>
+            <label for="chkActivo" style="font-size:14px;font-weight:600;cursor:pointer;" id="lblActivo">
+              Cuenta activa
+            </label>
+          </div>
+          <p class="text-muted mt-2" style="font-size:12px;">
+            Un usuario inactivo no puede iniciar sesión pero sus datos se conservan.
+          </p>
+        </div>
+
+        <!-- Acciones -->
+        <div class="form-card">
+          <button type="submit" class="btn primary-btn btn-guardar w-100 mb-2" id="btn-guardar">
+            <i class="lni lni-save me-2"></i>{{ accion }} Usuario
+          </button>
+          <a href="{% url 'usuarios_lista' %}" class="btn btn-cancelar w-100 text-center">
+            Cancelar
+          </a>
+        </div>
+
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // ── Selector visual de rol ─────────────────────
+  function seleccionarRol(card, valor) {
+    document.querySelectorAll('.rol-card').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+    card.querySelector('input[type="radio"]').checked = true;
+    // Mostrar/ocultar sección de perfil según rol (solo al crear)
+    const seccionPerfil = document.getElementById('seccion-perfil');
+    if (seccionPerfil) {
+      if (valor === 'Agente' || valor === 'Comprador') {
+        seccionPerfil.classList.remove('d-none');
+        document.getElementById('lblTipoPerfil').textContent =
+          valor === 'Agente' ? 'agente' : 'comprador';
+      } else {
+        seccionPerfil.classList.add('d-none');
+      }
+    }
+  }
+
+  // Mostrar sección perfil si hay un rol pre-seleccionado (al volver por errores)
+  document.addEventListener('DOMContentLoaded', function() {
+    const rolChecked = document.querySelector('input[name="rol"]:checked');
+    if (rolChecked && (rolChecked.value === 'Agente' || rolChecked.value === 'Comprador')) {
+      const seccionPerfil = document.getElementById('seccion-perfil');
+      if (seccionPerfil) {
+        seccionPerfil.classList.remove('d-none');
+        document.getElementById('lblTipoPerfil').textContent =
+          rolChecked.value === 'Agente' ? 'agente' : 'comprador';
+      }
+    }
+  });
+
+  // ── Label dinámico del toggle activo ──────────
+  const chk = document.getElementById('chkActivo');
+  const lbl = document.getElementById('lblActivo');
+  function actualizarLabelActivo() {
+    lbl.textContent = chk.checked ? 'Cuenta activa' : 'Cuenta inactiva';
+    lbl.style.color = chk.checked ? '#16a34a' : '#dc2626';
+  }
+  chk.addEventListener('change', actualizarLabelActivo);
+  actualizarLabelActivo();
+
+  // ── Validación con jQuery Validate ────────────
+  $(function() {
+    {% if accion == 'Crear' %}
+    $('#formUsuario').validate({
+      rules: {
+        nombre:    { required: true, minlength: 2 },
+        apellido:  { required: true, minlength: 2 },
+        username:  { required: true, minlength: 3 },
+        password1: { required: true, minlength: 6 },
+        password2: { required: true, equalTo: '#campo-password1' },
+        rol:       { required: true },
+      },
+    });
+    {% else %}
+    $('#formUsuario').validate({
+      rules: {
+        nombre:   { required: true, minlength: 2 },
+        apellido: { required: true, minlength: 2 },
+        password1: { minlength: 6 },
+        password2: { equalTo: '#campo-password1' },
+        rol:      { required: true },
+      },
+    });
+    {% endif %}
+  });
+</script>
+{% endblock %}

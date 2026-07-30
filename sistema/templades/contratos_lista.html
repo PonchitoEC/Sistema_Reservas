@@ -1,0 +1,161 @@
+{% extends 'PlantillaPrincipal.html' %}
+{% load static %}
+
+{% block titulo %}Contratos de Venta — Conexión Inmobiliaria{% endblock %}
+
+{% block estilos %}
+<style>
+  .page-header { background:linear-gradient(135deg,var(--primary) 0%,#1a4fbb 100%); padding:32px 0 24px; margin-bottom:32px; }
+  .page-header h1 { color:#fff; font-size:26px; font-weight:700; margin:0; }
+  .page-header p  { color:rgba(255,255,255,.75); margin:4px 0 0; font-size:14px; }
+  .table-card { background:#fff; border-radius:14px; box-shadow:0 3px 16px rgba(0,0,0,.08); overflow:hidden; }
+  table thead th { background:var(--primary); color:#fff; font-size:13px; font-weight:600; padding:14px 16px; border:none; text-transform:uppercase; letter-spacing:.04em; }
+  table tbody td { padding:14px 16px; font-size:14px; vertical-align:middle; border-bottom:1px solid #f3f4f6; }
+  table tbody tr:last-child td { border-bottom:none; }
+  table tbody tr:hover td { background:#f8faff; }
+  .badge-estado { font-size:11px; padding:4px 10px; border-radius:20px; font-weight:600; }
+  .badge-borrador   { background:#f3f4f6; color:#6b7280; }
+  .badge-en_revision{ background:#fef9c3; color:#ca8a04; }
+  .badge-firmado    { background:#dcfce7; color:#16a34a; }
+  .badge-anulado    { background:#fee2e2; color:#dc2626; }
+  .btn-accion { font-size:12px; padding:5px 12px; border-radius:6px; text-transform:none; letter-spacing:normal; }
+  .precio-cell { font-weight:700; color:var(--primary); }
+  .comision-cell { font-size:13px; color:#16a34a; font-weight:600; }
+  .empty-state { text-align:center; padding:60px 20px; color:#9ca3af; }
+  .empty-state i { font-size:56px; margin-bottom:16px; display:block; }
+</style>
+{% endblock %}
+
+{% block contenido %}
+<div class="page-header">
+  <div class="container">
+    <div class="d-flex justify-content-between align-items-center">
+      <div>
+        <h1><i class="fa fa-file-lines me-2"></i>Contratos de Venta</h1>
+        <p>Registro de negociaciones y cierres</p>
+      </div>
+      <a href="{% url 'contrato_crear' %}" class="btn navbar-auth-btn navbar-auth-outline" id="btn-nuevo-contrato">
+        <i class="fa fa-plus me-1"></i> Nuevo Contrato
+      </a>
+      <button class="btn-guia ms-2" onclick="iniciarTour()">
+        <i class="lni lni-graduation"></i> Guía
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="container pb-5">
+
+  {% if messages %}
+    {% for msg in messages %}
+      <div class="alert alert-{% if msg.tags == 'error' %}danger{% else %}{{ msg.tags }}{% endif %} alert-dismissible fade show mb-3">
+        {{ msg }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    {% endfor %}
+  {% endif %}
+
+  <p class="text-muted mb-3" style="font-size:14px;">
+    <strong>{{ contratos|length }}</strong> contrato{{ contratos|length|pluralize:"s" }}
+  </p>
+
+  {% if contratos %}
+  <div class="table-card">
+    <div class="table-responsive">
+      <table id="tablaContratos" class="table mb-0">
+        <thead>
+          <tr>
+            <th># Contrato</th>
+            <th>Propiedad</th>
+            <th>Comprador</th>
+            <th>Vendedor / Agente</th>
+            <th>Precio acordado</th>
+            <th>Comisión</th>
+            <th>Fecha firma</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in contratos %}
+          <tr>
+            <td class="fw-semibold">{{ c.numero_contrato }}</td>
+            <td>{{ c.propiedad.titulo }}</td>
+            <td>{{ c.comprador.user.get_full_name }}</td>
+            <td>{{ c.agente.nombre_completo }}</td>
+            <td class="precio-cell">${{ c.precio_acordado|floatformat:0 }}</td>
+            <td class="comision-cell">${{ c.comision_calculada|floatformat:2 }}</td>
+            <td>
+              {% if c.fecha_firma %}{{ c.fecha_firma|date:"d/m/Y" }}
+              {% else %}<span class="text-muted">—</span>{% endif %}
+            </td>
+            <td><span class="badge-estado badge-{{ c.estado }}">{{ c.get_estado_display }}</span></td>
+            <td>
+              <div class="d-flex gap-1">
+                  <a href="{% url 'contrato_editar' c.pk %}" class="btn primary-btn btn-accion">
+                    <i class="fa fa-pen"></i>
+                </a>
+                  <form method="POST" action="{% url 'contrato_enviar_correo' c.pk %}" style="display:inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-accion" title="Enviar correo">
+                      Enviar correo
+                    </button>
+                  </form>
+                {% if c.documento %}
+                <a href="{{ c.documento.url }}" target="_blank" class="btn btn-accion"
+                  style="border:1.5px solid var(--primary);color:var(--primary);border-radius:6px;"
+                  title="Ver documento">
+                  <i class="fa fa-download"></i>
+                </a>
+                {% endif %}
+                {% if user.is_superuser %}
+                <form method="POST" action="{% url 'contrato_eliminar' c.pk %}" style="display:inline;">
+                  {% csrf_token %}
+                    <button type="button" class="btn btn-accion"
+                    style="border:1.5px solid #dc2626;color:#dc2626;border-radius:6px;"
+                    data-confirm-delete="Contrato #{{ c.numero_contrato }}">
+                    <i class="fa fa-trash"></i>
+                  </button>
+                </form>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <i class="lni lni-files"></i>
+    <h5>No hay contratos registrados</h5>
+    <p><a href="{% url 'contrato_crear' %}">Crea el primer contrato</a></p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function iniciarTour() {
+  const { driver } = window.driver.js;
+  driver({
+    showProgress: true, animate: true, smoothScroll: true, allowClose: true,
+    stagePadding: 8, stageRadius: 10,
+    nextBtnText: 'Siguiente →', prevBtnText: '← Anterior', doneBtnText: '¡Entendido! ✓',
+    steps: [
+      { popover: { title: '📄 Contratos de Venta', description: 'Registro de todas las negociaciones entre compradores y propietarios. Aquí se gestionan desde el borrador hasta la firma final.', side: 'over', align: 'center' } },
+      { element: '#btn-nuevo-contrato', popover: { title: '➕ Nuevo Contrato', description: 'Crea un nuevo contrato seleccionando la propiedad, el comprador y el agente. La comisión se calcula automáticamente.', side: 'bottom', align: 'end' } },
+      { element: '#tablaContratos', popover: { title: '📋 Tabla de contratos', description: 'Muestra número de contrato, propiedad, comprador, agente, precio acordado y comisión generada en verde.', side: 'top', align: 'start' } },
+      { popover: { title: '🏷️ Estados del contrato', description: '<b>Borrador:</b> en preparación.<br><b>En revisión:</b> pendiente de aprobación.<br><b>Firmado:</b> contrato cerrado — la comisión se calcula y la propiedad pasa a "Vendida".<br><b>Anulado:</b> cancelado.', side: 'over', align: 'center' } },
+      { popover: { title: '📥 Documentos', description: 'Puedes adjuntar el PDF o Word del contrato. El botón de descarga aparece cuando hay documento adjunto.', side: 'over', align: 'center' } },
+      { popover: { title: '✅ ¡Listo!', description: 'Al marcar un contrato como "Firmado", el sistema calcula la comisión del agente y actualiza el estado de la propiedad automáticamente.', side: 'over', align: 'center' } },
+    ],
+  }).drive();
+}
+
+$(function() {
+  $('#tablaContratos').DataTable({ order: [[0,'desc']], columnDefs: [{ orderable:false, targets:[-1] }] });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,146 @@
+{% extends 'PlantillaPrincipal.html' %}
+{% load static %}
+
+{% block titulo %}Agentes Inmobiliarios — Conexión Inmobiliaria{% endblock %}
+
+{% block estilos %}
+<style>
+  .page-header { background:linear-gradient(135deg,var(--primary) 0%,#1a4fbb 100%); padding:32px 0 24px; margin-bottom:32px; }
+  .page-header h1 { color:#fff; font-size:26px; font-weight:700; margin:0; }
+  .page-header p  { color:rgba(255,255,255,.75); margin:4px 0 0; font-size:14px; }
+  .agente-card { border:none; border-radius:14px; box-shadow:0 3px 16px rgba(0,0,0,.08); overflow:hidden; transition:transform .2s,box-shadow .2s; }
+  .agente-card:hover { transform:translateY(-4px); box-shadow:0 8px 28px rgba(0,0,0,.13); }
+  .agente-avatar { width:72px; height:72px; border-radius:50%; object-fit:cover; }
+  .agente-avatar-placeholder { width:72px; height:72px; border-radius:50%; background:linear-gradient(135deg,var(--primary),#1a4fbb); color:#fff; display:flex; align-items:center; justify-content:center; font-size:26px; font-weight:700; flex-shrink:0; }
+  .badge-activo   { background:#dcfce7; color:#16a34a; }
+  .badge-inactivo { background:#fee2e2; color:#dc2626; }
+  .badge-estado { font-size:11px; padding:4px 10px; border-radius:20px; font-weight:600; }
+  .stat-chip { background:#f3f4f6; border-radius:8px; padding:6px 12px; font-size:13px; color:#374151; }
+  .btn-accion { font-size:12px; padding:5px 12px; border-radius:6px; text-transform:none; letter-spacing:normal; }
+  .empty-state { text-align:center; padding:60px 20px; color:#9ca3af; }
+  .empty-state i { font-size:56px; margin-bottom:16px; display:block; }
+</style>
+{% endblock %}
+
+{% block contenido %}
+<div class="page-header">
+  <div class="container">
+    <div class="d-flex justify-content-between align-items-center">
+      <div>
+        <h1><i class="fa fa-users me-2"></i>Agentes Inmobiliarios</h1>
+        <p>Equipo de agentes registrados en el sistema</p>
+      </div>
+      <a href="{% url 'agente_crear' %}" class="btn navbar-auth-btn navbar-auth-outline" id="btn-nuevo-agente">
+        <i class="fa fa-plus me-1"></i> Nuevo Agente
+      </a>
+      <button class="btn-guia ms-2" onclick="iniciarTour()">
+        <i class="fa fa-graduation-cap"></i> Guía
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="container pb-5">
+
+  {% if messages %}
+    {% for msg in messages %}
+      <div class="alert alert-{% if msg.tags == 'error' %}danger{% else %}{{ msg.tags }}{% endif %} alert-dismissible fade show mb-3">
+        {{ msg }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    {% endfor %}
+  {% endif %}
+
+  <p class="text-muted mb-3" style="font-size:14px;">
+    <strong>{{ agentes|length }}</strong> agente{{ agentes|length|pluralize:"s" }} registrado{{ agentes|length|pluralize:"s" }}
+  </p>
+
+  {% if agentes %}
+  <div class="table-card">
+    <div class="table-responsive">
+      <table id="tablaAgentes" class="table mb-0">
+        <thead>
+          <tr>
+            <th>Agente</th><th>Cédula</th><th>Teléfono</th>
+            <th>Comisión</th><th>Propiedades</th><th>Visitas</th>
+            <th>Estado</th><th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for a in agentes %}
+          <tr>
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                {% if a.foto %}
+                  <img src="{{ a.foto.url }}" class="agente-avatar" alt="{{ a.nombre_completo }}">
+                {% else %}
+                  <div class="agente-avatar-placeholder">
+                    {{ a.user.first_name|first|upper }}{{ a.user.last_name|first|upper }}
+                  </div>
+                {% endif %}
+                <div>
+                  <div class="fw-bold" style="font-size:14px;">{{ a.nombre_completo }}</div>
+                  <div class="text-muted" style="font-size:12px;">{{ a.user.email }}</div>
+                </div>
+              </div>
+            </td>
+            <td>{{ a.cedula }}</td>
+            <td>{{ a.telefono }}</td>
+            <td>{{ a.comision_pct }}%</td>
+            <td>{{ a.propiedades.count }}</td>
+            <td>{{ a.visitas.count }}</td>
+            <td><span class="badge-estado badge-{{ a.estado }}">{{ a.get_estado_display }}</span></td>
+            <td>
+              <div class="d-flex gap-2">
+                <a href="{% url 'agente_editar' a.pk %}" class="btn primary-btn btn-accion">
+                  <i class="fa fa-pen me-1"></i>Editar
+                </a>
+                <form method="POST" action="{% url 'agente_eliminar' a.pk %}" style="display:inline;">
+                  {% csrf_token %}
+                    <button type="button" class="btn btn-accion"
+                    style="border:1.5px solid #dc2626;color:#dc2626;border-radius:6px;"
+                    data-confirm-delete="{{ a.nombre_completo }}">
+                    <i class="fa fa-trash"></i>
+                  </button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <i class="fa fa-users"></i>
+    <h5>No hay agentes registrados</h5>
+    <p><a href="{% url 'agente_crear' %}">Registra el primer agente</a></p>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function iniciarTour() {
+  const { driver } = window.driver.js;
+  driver({
+    showProgress: true, animate: true, smoothScroll: true, allowClose: true,
+    stagePadding: 8, stageRadius: 10,
+    nextBtnText: 'Siguiente →', prevBtnText: '← Anterior', doneBtnText: '¡Entendido! ✓',
+    steps: [
+      { popover: { title: '👥 Agentes Inmobiliarios', description: 'Aquí ves a todo el equipo de agentes registrados con sus estadísticas de rendimiento.', side: 'over', align: 'center' } },
+      { element: '#btn-nuevo-agente', popover: { title: '➕ Nuevo Agente', description: 'Solo el administrador puede crear agentes. Se les asigna automáticamente el rol "Agente" y podrán gestionar propiedades y visitas.', side: 'bottom', align: 'end' } },
+      { element: '#tablaAgentes', popover: { title: '📋 Tabla de agentes', description: 'Muestra nombre, cédula, teléfono, comisión, propiedades captadas y visitas realizadas. Usa la barra de búsqueda para filtrar.', side: 'top', align: 'start' } },
+      { popover: { title: '💰 Comisión', description: 'El porcentaje de comisión se aplica automáticamente al precio acordado cuando se firma un contrato de venta.', side: 'over', align: 'center' } },
+      { popover: { title: '✅ ¡Listo!', description: 'Para ver el rendimiento detallado de cada agente ve a la sección Reportes.', side: 'over', align: 'center' } },
+    ],
+  }).drive();
+}
+
+$(function() {
+  $('#tablaAgentes').DataTable({ order: [[0,'asc']], columnDefs: [{ orderable:false, targets:[7] }] });
+});
+</script>
+{% endblock %}

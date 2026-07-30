@@ -1,0 +1,336 @@
+{% extends 'PlantillaPrincipal.html' %}
+{% load static %}
+
+{% block titulo %}Crear Cuenta — Conexión Inmobiliaria{% endblock %}
+
+{% block estilos %}
+<style>
+  .auth-section {
+    min-height: calc(100vh - 85px);
+    display: flex;
+    align-items: center;
+    background: linear-gradient(135deg, #f5f7fa 0%, #e8edf5 100%);
+    padding: 60px 0;
+  }
+  .auth-card {
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.10);
+    padding: 48px 40px;
+    max-width: 560px;
+    width: 100%;
+    margin: 0 auto;
+  }
+  .auth-card .auth-logo {
+    text-align: center;
+    margin-bottom: 28px;
+  }
+  .auth-card .auth-logo img {
+    height: 70px;
+    width: auto;
+  }
+  .auth-card h2 {
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--dark);
+    text-align: center;
+    margin-bottom: 6px;
+  }
+  .auth-card .auth-subtitle {
+    text-align: center;
+    color: var(--gray-2);
+    font-size: 14px;
+    margin-bottom: 32px;
+  }
+  .auth-card .form-label {
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--dark-3);
+    margin-bottom: 6px;
+  }
+  .auth-card .form-control {
+    border-radius: 8px;
+    border: 1.5px solid #e0e0e0;
+    padding: 11px 16px;
+    font-size: 15px;
+    transition: border-color 0.2s;
+  }
+  .auth-card .form-control:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(var(--primary-rgb, 37,99,235), 0.10);
+  }
+  .auth-card .input-group-text {
+    border-radius: 0 8px 8px 0;
+    border: 1.5px solid #e0e0e0;
+    border-left: none;
+    background: #f8f9fa;
+    cursor: pointer;
+    color: var(--gray-2);
+  }
+  .auth-card .input-group .form-control {
+    border-radius: 8px 0 0 8px;
+  }
+  .auth-card .btn-auth {
+    width: 100%;
+    padding: 13px;
+    font-size: 16px;
+    font-weight: 600;
+    border-radius: 8px;
+    text-transform: none;
+    letter-spacing: normal;
+    margin-top: 8px;
+  }
+  .auth-card .section-divider {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--primary);
+    border-bottom: 2px solid var(--primary);
+    padding-bottom: 6px;
+    margin: 24px 0 16px;
+  }
+  .auth-card .auth-footer {
+    text-align: center;
+    margin-top: 24px;
+    font-size: 14px;
+    color: var(--gray-2);
+  }
+  .auth-card .auth-footer a {
+    color: var(--primary);
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .auth-card .auth-footer a:hover {
+    text-decoration: underline;
+  }
+  .password-strength {
+    height: 4px;
+    border-radius: 4px;
+    margin-top: 6px;
+    background: #e0e0e0;
+    transition: all 0.3s;
+  }
+  .password-strength-bar {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.3s, background 0.3s;
+    width: 0%;
+  }
+  .alert {
+    border-radius: 8px;
+    font-size: 14px;
+    padding: 10px 16px;
+    margin-bottom: 16px;
+  }
+</style>
+{% endblock %}
+
+{% block contenido %}
+<section class="auth-section">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-12">
+        <div class="auth-card">
+
+          <!-- Logo -->
+          <div class="auth-logo">
+            <a href="{% url 'inicio' %}">
+              <img src="{% static 'assets/images/logo.png' %}" alt="Conexión Inmobiliaria" />
+            </a>
+          </div>
+
+          <h2>Crear tu cuenta</h2>
+          <p class="auth-subtitle">Regístrate como comprador y empieza a agendar visitas</p>
+
+          <!-- Formulario -->
+          <form method="POST" action="{% url 'registro' %}" id="formRegistro" novalidate>
+            {% csrf_token %}
+
+            <!-- Datos personales -->
+            <p class="section-divider">Datos personales</p>
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Nombre</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  name="nombre"
+                  placeholder="Tu nombre"
+                  value="{{ datos.nombre }}"
+                  required
+                  autofocus
+                />
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Apellido</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  name="apellido"
+                  placeholder="Tu apellido"
+                  value="{{ datos.apellido }}"
+                  required
+                />
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Cédula</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  name="cedula"
+                  placeholder="10 dígitos"
+                  maxlength="13"
+                  value="{{ datos.cedula }}"
+                  required
+                />
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Teléfono</label>
+                <input
+                  type="tel"
+                  class="form-control"
+                  name="telefono"
+                  placeholder="+593 9XXXXXXXX"
+                  value="{{ datos.telefono }}"
+                  required
+                />
+              </div>
+            </div>
+
+            <!-- Datos de acceso -->
+            <p class="section-divider">Datos de acceso</p>
+            <div class="mb-3">
+              <label class="form-label">Nombre de usuario</label>
+              <input
+                type="text"
+                class="form-control"
+                name="username"
+                placeholder="Elige un nombre de usuario"
+                value="{{ datos.username }}"
+                required
+              />
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Correo electrónico</label>
+              <input
+                type="email"
+                class="form-control"
+                name="email"
+                placeholder="tu@correo.com"
+                value="{{ datos.email }}"
+                required
+              />
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Contraseña</label>
+              <div class="input-group">
+                <input
+                  type="password"
+                  class="form-control"
+                  id="password1"
+                  name="password1"
+                  placeholder="Mínimo 6 caracteres"
+                  required
+                  oninput="checkStrength(this.value)"
+                />
+                <span class="input-group-text" onclick="togglePassword('password1', this)">
+                  <i class="lni lni-eye"></i>
+                </span>
+              </div>
+              <!-- Barra de fortaleza -->
+              <div class="password-strength">
+                <div class="password-strength-bar" id="strengthBar"></div>
+              </div>
+              <small id="strengthText" class="text-muted" style="font-size:12px;"></small>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Confirmar contraseña</label>
+              <div class="input-group">
+                <input
+                  type="password"
+                  class="form-control"
+                  id="password2"
+                  name="password2"
+                  placeholder="Repite tu contraseña"
+                  required
+                />
+                <span class="input-group-text" onclick="togglePassword('password2', this)">
+                  <i class="lni lni-eye"></i>
+                </span>
+              </div>
+            </div>
+
+            <button type="submit" class="btn primary-btn btn-auth">
+              <i class="lni lni-user me-2"></i> Crear cuenta
+            </button>
+          </form>
+
+          <div class="auth-footer">
+            ¿Ya tienes cuenta?
+            <a href="{% url 'login' %}">Inicia sesión</a>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  $(function() {
+    $('#formRegistro').validate({
+      rules: {
+        nombre:    { required: true, minlength: 2 },
+        apellido:  { required: true, minlength: 2 },
+        cedula:    { required: true, minlength: 10, maxlength: 13, digits: true },
+        telefono:  { required: true, minlength: 7 },
+        username:  { required: true, minlength: 4 },
+        email:     { required: true, email: true },
+        password1: { required: true, minlength: 6 },
+        password2: { required: true, minlength: 6, equalTo: '#password1' },
+      },
+    });
+  });
+
+  function togglePassword(fieldId, btn) {
+    const input = document.getElementById(fieldId);
+    const icon  = btn.querySelector('i');
+    if (input.type === 'password') {
+      input.type = 'text';
+      icon.classList.replace('lni-eye', 'lni-eye-slash');
+    } else {
+      input.type = 'password';
+      icon.classList.replace('lni-eye-slash', 'lni-eye');
+    }
+  }
+
+  function checkStrength(val) {
+    const bar  = document.getElementById('strengthBar');
+    const text = document.getElementById('strengthText');
+    let score  = 0;
+    if (val.length >= 6)  score++;
+    if (val.length >= 10) score++;
+    if (/[A-Z]/.test(val)) score++;
+    if (/[0-9]/.test(val)) score++;
+    if (/[^A-Za-z0-9]/.test(val)) score++;
+    const niveles = [
+      { pct: '0%',   color: '#e0e0e0', label: '' },
+      { pct: '25%',  color: '#ef4444', label: 'Muy débil' },
+      { pct: '50%',  color: '#f97316', label: 'Débil' },
+      { pct: '75%',  color: '#eab308', label: 'Aceptable' },
+      { pct: '90%',  color: '#22c55e', label: 'Fuerte' },
+      { pct: '100%', color: '#16a34a', label: 'Muy fuerte' },
+    ];
+    const n = niveles[score] || niveles[0];
+    bar.style.width      = n.pct;
+    bar.style.background = n.color;
+    text.textContent     = n.label;
+    text.style.color     = n.color;
+  }
+</script>
+{% endblock %}

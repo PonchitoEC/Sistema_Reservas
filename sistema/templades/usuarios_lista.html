@@ -1,0 +1,270 @@
+{% extends 'PlantillaPrincipal.html' %}
+{% load static %}
+
+{% block titulo %}Gestión de Usuarios — Conexión Inmobiliaria{% endblock %}
+
+{% block estilos %}
+<style>
+  .page-header { background:linear-gradient(135deg,var(--primary) 0%,#1a4fbb 100%); padding:32px 0 24px; margin-bottom:32px; }
+  .page-header h1 { color:#fff; font-size:26px; font-weight:700; margin:0; }
+  .page-header p  { color:rgba(255,255,255,.75); margin:4px 0 0; font-size:14px; }
+  .filter-bar { background:#fff; border-radius:12px; box-shadow:0 2px 12px rgba(0,0,0,.07); padding:18px 24px; margin-bottom:24px; }
+  .filter-bar .form-control, .filter-bar .form-select { border-radius:8px; border:1.5px solid #e0e0e0; font-size:14px; padding:9px 14px; }
+  .table-card { background:#fff; border-radius:14px; box-shadow:0 3px 16px rgba(0,0,0,.08); overflow:hidden; }
+  table thead th { background:var(--primary); color:#fff; font-size:12px; font-weight:600; padding:14px 16px; border:none; text-transform:uppercase; letter-spacing:.04em; }
+  table tbody td { padding:13px 16px; font-size:14px; vertical-align:middle; border-bottom:1px solid #f3f4f6; }
+  table tbody tr:last-child td { border-bottom:none; }
+  table tbody tr:hover td { background:#f8faff; }
+  .avatar-sm { width:36px; height:36px; border-radius:50%; background:linear-gradient(135deg,var(--primary),#1a4fbb); color:#fff; display:inline-flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; flex-shrink:0; }
+  .btn-accion { font-size:12px; padding:5px 12px; border-radius:6px; text-transform:none; letter-spacing:normal; }
+  .badge-rol { font-size:11px; padding:4px 11px; border-radius:20px; font-weight:600; white-space:nowrap; }
+  .rol-administrador { background:rgba(37,99,235,.12); color:#1d4ed8; }
+  .rol-agente        { background:#dcfce7; color:#16a34a; }
+  .rol-comprador     { background:#fef9c3; color:#b45309; }
+  .rol-sin_rol       { background:#f3f4f6; color:#6b7280; }
+  .badge-activo   { background:#dcfce7; color:#16a34a; font-size:11px; padding:3px 9px; border-radius:20px; font-weight:600; }
+  .badge-inactivo { background:#fee2e2; color:#dc2626; font-size:11px; padding:3px 9px; border-radius:20px; font-weight:600; }
+  .empty-state { text-align:center; padding:60px 20px; color:#9ca3af; }
+  .empty-state i { font-size:56px; margin-bottom:16px; display:block; }
+</style>
+{% endblock %}
+
+{% block contenido %}
+<div class="page-header">
+  <div class="container">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+      <div>
+        <h1><i class="fa fa-users me-2"></i>Gestión de Usuarios</h1>
+        <p>Administra cuentas y roles del sistema</p>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <a href="{% url 'usuario_crear' %}" class="btn navbar-auth-btn navbar-auth-outline" id="btn-nuevo-usuario">
+          <i class="fa fa-plus me-1"></i> Nuevo Usuario
+        </a>
+        <button class="btn-guia" onclick="iniciarTour()">
+          <i class="fa fa-graduation-cap"></i> Guía
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="container pb-5">
+
+  <!-- Filtros -->
+  <div class="filter-bar" id="filtros-bar">
+    <form method="GET" class="row g-3 align-items-end">
+      <div class="col-md-6">
+        <label class="form-label fw-semibold" style="font-size:13px;">Buscar</label>
+        <input type="text" name="q" class="form-control"
+          placeholder="Nombre, usuario o correo..."
+          value="{{ filtro_q }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label fw-semibold" style="font-size:13px;">Rol</label>
+        <select name="rol" class="form-select">
+          <option value="">Todos los roles</option>
+          {% for val, label in roles_disponibles %}
+            <option value="{{ val }}" {% if filtro_rol == val %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+          <option value="sin_rol" {% if filtro_rol == 'sin_rol' %}selected{% endif %}>Sin rol</option>
+        </select>
+      </div>
+      <div class="col-md-3 d-flex gap-2">
+          <button type="submit" class="btn primary-btn btn-sm w-100"
+          style="text-transform:none;letter-spacing:normal;">
+          <i class="fa fa-search me-1"></i>Filtrar
+        </button>
+        <a href="{% url 'usuarios_lista' %}" class="btn btn-sm w-100"
+          style="border:1.5px solid #e0e0e0;border-radius:8px;text-transform:none;letter-spacing:normal;">
+          <i class="fa fa-rotate-right"></i>
+        </a>
+      </div>
+    </form>
+  </div>
+
+  <!-- Resumen por roles — contadores calculados en el backend -->
+  <div class="row g-3 mb-4" id="resumen-roles">
+    <div class="col-6 col-md-3">
+      <div style="background:#fff;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.07);padding:16px 20px;display:flex;align-items:center;gap:14px;">
+          <div style="width:44px;height:44px;border-radius:10px;background:rgba(37,99,235,.1);display:flex;align-items:center;justify-content:center;font-size:20px;">
+          <i class="fa fa-shield" style="color:var(--primary);"></i>
+        </div>
+        <div>
+          <div style="font-size:22px;font-weight:700;color:var(--primary);">{{ usuarios|length }}</div>
+          <div style="font-size:12px;color:#6b7280;">Total usuarios</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div style="background:#fff;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.07);padding:16px 20px;display:flex;align-items:center;gap:14px;">
+          <div style="width:44px;height:44px;border-radius:10px;background:rgba(37,99,235,.1);display:flex;align-items:center;justify-content:center;font-size:20px;">
+          <i class="fa fa-crown" style="color:#1d4ed8;"></i>
+        </div>
+        <div>
+          <div style="font-size:22px;font-weight:700;color:#1d4ed8;" id="cnt-admins">—</div>
+          <div style="font-size:12px;color:#6b7280;">Administradores</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div style="background:#fff;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.07);padding:16px 20px;display:flex;align-items:center;gap:14px;">
+          <div style="width:44px;height:44px;border-radius:10px;background:#dcfce7;display:flex;align-items:center;justify-content:center;font-size:20px;">
+          <i class="fa fa-briefcase" style="color:#16a34a;"></i>
+        </div>
+        <div>
+          <div style="font-size:22px;font-weight:700;color:#16a34a;" id="cnt-agentes">—</div>
+          <div style="font-size:12px;color:#6b7280;">Agentes</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div style="background:#fff;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.07);padding:16px 20px;display:flex;align-items:center;gap:14px;">
+          <div style="width:44px;height:44px;border-radius:10px;background:#fef9c3;display:flex;align-items:center;justify-content:center;font-size:20px;">
+          <i class="fa fa-user" style="color:#b45309;"></i>
+        </div>
+        <div>
+          <div style="font-size:22px;font-weight:700;color:#b45309;" id="cnt-compradores">—</div>
+          <div style="font-size:12px;color:#6b7280;">Compradores</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabla -->
+  {% if usuarios %}
+  <div class="table-card" id="tabla-usuarios">
+    <div class="table-responsive">
+      <table id="tablaUsuarios" class="table mb-0">
+        <thead>
+          <tr>
+            <th>Usuario</th>
+            <th>Nombre de usuario</th>
+            <th>Correo</th>
+            <th>Rol</th>
+            <th>Estado</th>
+            <th>Miembro desde</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in usuarios %}
+          {% with u=item.user r=item.rol %}
+          <tr>
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                <div class="avatar-sm">
+                  {{ u.first_name|first|upper|default:u.username|first|upper }}{{ u.last_name|first|upper }}
+                </div>
+                <div>
+                  <div class="fw-semibold">{{ u.get_full_name|default:u.username }}</div>
+                  {% if u == request.user %}
+                  <span style="font-size:11px;color:#2563eb;">(tú)</span>
+                  {% endif %}
+                </div>
+              </div>
+            </td>
+            <td><code style="font-size:13px;">{{ u.username }}</code></td>
+            <td style="font-size:13px;">{{ u.email|default:"—" }}</td>
+            <td>
+              <span class="badge-rol rol-{{ r }}">
+                {% if r == 'administrador' %}<i class="fa fa-crown me-1"></i>Administrador
+                {% elif r == 'agente' %}<i class="fa fa-briefcase me-1"></i>Agente
+                {% elif r == 'comprador' %}<i class="fa fa-user me-1"></i>Comprador
+                {% else %}<i class="fa fa-minus me-1"></i>Sin rol
+                {% endif %}
+              </span>
+            </td>
+            <td>
+              <span class="{% if u.is_active %}badge-activo{% else %}badge-inactivo{% endif %}">
+                {% if u.is_active %}Activo{% else %}Inactivo{% endif %}
+              </span>
+            </td>
+            <td style="font-size:13px;color:#6b7280;">{{ u.date_joined|date:"d/m/Y" }}</td>
+            <td>
+              <div class="d-flex gap-1 flex-wrap">
+                  <a href="{% url 'usuario_editar' u.pk %}"
+                  class="btn primary-btn btn-accion" title="Editar">
+                  <i class="fa fa-pen"></i>
+                </a>
+                {% if u != request.user %}
+                <form method="POST" action="{% url 'usuario_toggle_activo' u.pk %}" style="display:inline;">
+                  {% csrf_token %}
+                    <button type="submit" class="btn btn-accion"
+                    style="border:1.5px solid {% if u.is_active %}#ca8a04{% else %}#16a34a{% endif %};
+                           color:{% if u.is_active %}#ca8a04{% else %}#16a34a{% endif %};border-radius:6px;"
+                    title="{% if u.is_active %}Desactivar{% else %}Activar{% endif %}">
+                    <i class="fa {% if u.is_active %}fa-ban{% else %}fa-check-circle{% endif %}"></i>
+                  </button>
+                </form>
+                <form method="POST" action="{% url 'usuario_eliminar' u.pk %}" style="display:inline;">
+                  {% csrf_token %}
+                    <button type="button" class="btn btn-accion"
+                    style="border:1.5px solid #dc2626;color:#dc2626;border-radius:6px;"
+                    data-confirm-delete="{{ u.get_full_name|default:u.username }}"
+                    title="Eliminar">
+                    <i class="fa fa-trash"></i>
+                  </button>
+                </form>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endwith %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <i class="fa fa-users"></i>
+    <h5>No se encontraron usuarios</h5>
+    <p>Intenta con otros filtros o <a href="{% url 'usuario_crear' %}">crea un nuevo usuario</a>.</p>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(function() {
+  // Contar roles en la tabla para los contadores
+  let admins = 0, agentes = 0, compradores = 0;
+  $('#tablaUsuarios tbody tr').each(function() {
+    const badge = $(this).find('.badge-rol');
+    if (badge.hasClass('rol-administrador')) admins++;
+    if (badge.hasClass('rol-agente'))        agentes++;
+    if (badge.hasClass('rol-comprador'))     compradores++;
+  });
+  $('#cnt-admins').text(admins);
+  $('#cnt-agentes').text(agentes);
+  $('#cnt-compradores').text(compradores);
+
+  // DataTable
+  $('#tablaUsuarios').DataTable({
+    order: [[0, 'asc']],
+    columnDefs: [{ orderable: false, targets: [-1] }],
+  });
+});
+
+function iniciarTour() {
+  const { driver } = window.driver.js;
+  driver({
+    showProgress: true, animate: true, smoothScroll: true, allowClose: true,
+    stagePadding: 8, stageRadius: 10,
+    nextBtnText: 'Siguiente →', prevBtnText: '← Anterior', doneBtnText: '¡Entendido! ✓',
+    steps: [
+      { popover: { title: '👥 Gestión de Usuarios', description: 'Aquí el administrador puede ver, crear, editar y eliminar todos los usuarios del sistema, así como cambiar sus roles.', side: 'over', align: 'center' } },
+      { element: '#resumen-roles', popover: { title: '📊 Resumen de roles', description: 'Muestra el total de usuarios y cuántos hay por rol: Administradores, Agentes y Compradores.', side: 'bottom', align: 'start' } },
+      { element: '#filtros-bar', popover: { title: '🔍 Filtros', description: 'Busca por nombre, usuario o correo. También puedes filtrar por rol para ver solo Agentes, Compradores o Administradores.', side: 'bottom', align: 'start' } },
+      { element: '#btn-nuevo-usuario', popover: { title: '➕ Nuevo Usuario', description: 'Crea un nuevo usuario asignándole un rol: Administrador, Agente o Comprador. El sistema configura automáticamente los permisos según el rol elegido.', side: 'bottom', align: 'end' } },
+      { element: '#tabla-usuarios', popover: { title: '📋 Tabla de usuarios', description: 'Muestra nombre, usuario, correo, rol, estado (activo/inactivo) y fecha de registro. El botón amarillo activa/desactiva sin eliminar. El rojo elimina permanentemente.', side: 'top', align: 'start' } },
+      { popover: { title: '🔐 Seguridad', description: 'No puedes eliminar ni desactivar tu propio usuario. Los cambios de contraseña son opcionales al editar.', side: 'over', align: 'center' } },
+      { popover: { title: '✅ ¡Listo!', description: 'Ya conoces la gestión de usuarios. Recuerda: el rol determina qué secciones y acciones puede realizar cada persona en el sistema.', side: 'over', align: 'center' } },
+    ],
+  }).drive();
+}
+</script>
+{% endblock %}

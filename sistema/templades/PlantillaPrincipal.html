@@ -1,0 +1,670 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <!--====== Required meta tags ======-->
+  <meta charset="utf-8" />
+  <meta http-equiv="x-ua-compatible" content="ie=edge" />
+  <meta name="description" content="" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+
+  <!--====== Title ======-->
+  <title>{% block titulo %}Sistema de Reservas{% endblock %}</title>
+
+  <!--====== Favicon Icon ======-->
+  <link rel="shortcut icon" href="{% static 'assets/images/favicon.svg' %}" type="image/svg" />
+
+  <!--====== Bootstrap css ======-->
+  <link rel="stylesheet" href="{% static 'assets/css/bootstrap.min.css' %}" />
+
+  <!--====== Line Icons css ======-->
+  <link rel="stylesheet" href="{% static 'assets/css/lineicons.css' %}" />
+  <!--====== Font Awesome (nuevos íconos más agradables) ======-->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+  <!--====== Tiny Slider css ======-->
+  <link rel="stylesheet" href="{% static 'assets/css/tiny-slider.css' %}" />
+
+  <!--====== gLightBox css ======-->
+  <link rel="stylesheet" href="{% static 'assets/css/glightbox.min.css' %}" />
+
+  <link rel="stylesheet" href="{% static 'style.css' %}" />
+
+  <!--====== DataTables CSS (CDN) ======-->
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/dataTables.bootstrap5.min.css" />
+  <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.bootstrap5.min.css" />
+
+  <!--====== SweetAlert2 CSS (CDN) ======-->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" />
+
+  <!--====== Bootstrap FileInput CSS (CDN) ======-->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-fileinput@5.5.3/css/fileinput.min.css" />
+
+  <!--====== Driver.js CSS (CDN) ======-->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/driver.js@1.3.1/dist/driver.css" />
+
+  <style>
+    /* Botón de guía reutilizable */
+    .btn-guia {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(255,255,255,.18); color: #fff;
+      border: 2px solid rgba(255,255,255,.5); border-radius: 8px;
+      padding: 7px 16px; font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: all .2s;
+      text-transform: none; letter-spacing: normal;
+    }
+    .btn-guia:hover { background: rgba(255,255,255,.32); color: #fff; }
+    /* Driver.js overrides */
+    .driver-popover { border-radius: 12px !important; }
+    .driver-popover-title { font-size:15px !important; font-weight:700 !important; color:#1e293b !important; }
+    .driver-popover-description { font-size:13px !important; color:#475569 !important; line-height:1.6 !important; }
+    .driver-popover-next-btn {
+      background: var(--primary) !important; border-color: var(--primary) !important;
+      border-radius: 7px !important; font-size:13px !important;
+      text-transform:none !important; letter-spacing:normal !important;
+    }
+    .driver-popover-prev-btn {
+      border-radius:7px !important; font-size:13px !important;
+      text-transform:none !important; letter-spacing:normal !important;
+    }
+  </style>
+
+  <!--====== Extra styles por página ======-->
+  {% block estilos %}{% endblock %}
+
+  <style>
+    /* Botones de autenticación en el navbar */
+    .navbar-auth-btn {
+      text-transform: none;
+      letter-spacing: normal;
+      font-weight: 500;
+      font-size: 14px;
+      padding: 7px 18px;
+      border-radius: 5px;
+      transition: all 0.3s ease;
+    }
+    .navbar-auth-outline {
+      border: 2px solid #fff !important;
+      color: #fff !important;
+      background: transparent;
+    }
+    .navbar-auth-outline:hover {
+      background: #fff !important;
+      color: var(--primary) !important;
+    }
+    .navbar-auth-solid {
+      border: 2px solid #fff !important;
+      background: #fff !important;
+      color: var(--primary) !important;
+    }
+    .navbar-auth-solid:hover {
+      background: transparent !important;
+      color: #fff !important;
+    }
+    /* ─── CORRECCIÓN DEL TEMA: dropdown-menu del navbar ────────────
+       El tema aplica color:white a todos los .nav-item a,
+       lo que hace invisible el texto en el dropdown (blanco sobre blanco).
+       Sobrescribimos SOLO los links dentro del .dropdown-menu de Bootstrap.
+    ──────────────────────────────────────────────────────────────── */
+    .navbar-area.navbar-nine .navbar .navbar-nav .nav-item .dropdown-menu a.dropdown-item {
+      color: #374151 !important;
+      font-size: 14px !important;
+      font-weight: 500 !important;
+      opacity: 1 !important;
+      padding: 9px 16px !important;
+      margin: 0 !important;
+      display: flex !important;
+      align-items: center;
+      white-space: nowrap;
+      background: transparent;
+      border-radius: 0;
+    }
+    .navbar-area.navbar-nine .navbar .navbar-nav .nav-item .dropdown-menu a.dropdown-item:hover {
+      background: #f0f5ff !important;
+      color: var(--primary) !important;
+    }
+    /* Asegurar que el texto span dd-txt sea visible */
+    .navbar-area.navbar-nine .navbar .navbar-nav .nav-item .dropdown-menu a.dropdown-item .dd-txt,
+    .navbar-area.navbar-nine .navbar .navbar-nav .nav-item .dropdown-menu a.dropdown-item span {
+      color: inherit !important;
+      font-size: 14px !important;
+      font-weight: 500 !important;
+      opacity: 1 !important;
+      display: inline !important;
+      visibility: visible !important;
+    }
+    /* El dropdown-menu mismo */
+    .navbar-area.navbar-nine .navbar .navbar-nav .nav-item .dropdown-menu {
+      background: #fff !important;
+      border: none !important;
+      border-radius: 10px !important;
+      box-shadow: 0 8px 32px rgba(0,0,0,.15) !important;
+      padding: 8px 0 !important;
+      min-width: 220px;
+      margin-top: 4px !important;
+    }
+    /* Etiquetas de sección (no son links) */
+    .dd-section-label {
+      font-size: 10px !important;
+      font-weight: 700 !important;
+      text-transform: uppercase !important;
+      letter-spacing: .07em !important;
+      color: #9ca3af !important;
+      padding: 8px 16px 4px !important;
+      display: block !important;
+      opacity: 1 !important;
+    }
+    /* Forzar links del navbar en una sola línea */
+    .navbar-area .navbar-nav .nav-item > a {
+      white-space: nowrap;
+    }
+    .navbar-area .navbar-nav {
+      align-items: center;
+      gap: 2px;
+    }
+    /* Corregir tamaño de iconos dentro del dropdown (el tema los pone en 12px) */
+    .navbar-area.navbar-nine .navbar .navbar-nav .nav-item .dropdown-menu a.dropdown-item i {
+      font-size: 15px !important;
+      padding-left: 0 !important;
+      flex-shrink: 0;
+      width: 20px;
+      text-align: center;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!--====== NAVBAR PART START ======-->
+  <section class="navbar-area navbar-nine">
+    <div class="container">
+      <div class="row">
+        <div class="col-lg-12">
+          <nav class="navbar navbar-expand-lg">
+            <a class="navbar-brand" href="{% url 'inicio' %}">
+              <img src="{% static 'assets/images/logo.png' %}" alt="Logo"
+                style="height: 56px; width: auto; object-fit: contain;" />
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNine"
+              aria-controls="navbarNine" aria-expanded="false" aria-label="Toggle navigation">
+              <span class="toggler-icon"></span>
+              <span class="toggler-icon"></span>
+              <span class="toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse sub-menu-bar" id="navbarNine">
+              <ul class="navbar-nav me-auto">
+                {% block nav_links %}
+                <li class="nav-item">
+                  <a class="active" href="{% url 'inicio' %}">Inicio</a>
+                </li>
+
+                {% if user.is_authenticated %}
+                <li class="nav-item">
+                  <a href="{% url 'propiedades_lista' %}">Propiedades</a>
+                </li>
+                <li class="nav-item">
+                  <a href="{% url 'calendario' %}">Calendario</a>
+                </li>
+
+                {% if user.is_superuser %}
+                {# ── ADMINISTRADOR: dropdown de Administración ── #}
+                <li class="nav-item dropdown">
+                  <a href="#" class="dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="fa fa-cog" style="font-size:14px;"></i> Administración
+                  </a>
+                  <ul class="dropdown-menu shadow" style="min-width:210px;">
+                    <li><span class="dd-section-label">Operaciones</span></li>
+                    <li>
+                      <a class="dropdown-item" href="{% url 'ruta_del_dia' %}">
+                        <i class="fa fa-map-location-dot me-2" style="color:#ca8a04;"></i><span class="dd-txt">Ruta del día</span>
+                      </a>
+                    </li>
+                    <li>
+                      <a class="dropdown-item" href="{% url 'reportes' %}">
+                        <i class="fa fa-chart-bar me-2" style="color:#16a34a;"></i><span class="dd-txt">Reportes</span>
+                      </a>
+                    </li>
+                    <li><hr class="dropdown-divider my-1"></li>
+                    <li><span class="dd-section-label">Gestión</span></li>
+                    <li>
+                      <a class="dropdown-item" href="{% url 'usuarios_lista' %}">
+                        <i class="fa fa-users me-2" style="color:var(--primary);"></i><span class="dd-txt">Usuarios y Roles</span>
+                      </a>
+                    </li>
+                    <li>
+                      <a class="dropdown-item" href="{% url 'agentes_lista' %}">
+                        <i class="fa fa-briefcase me-2" style="color:#16a34a;"></i><span class="dd-txt">Agentes</span>
+                      </a>
+                    </li>
+                    <li>
+                      <a class="dropdown-item" href="{% url 'compradores_lista' %}">
+                        <i class="fa fa-user me-2" style="color:#ca8a04;"></i><span class="dd-txt">Compradores</span>
+                      </a>
+                    </li>
+                    <li>
+                      <a class="dropdown-item" href="{% url 'contratos_lista' %}">
+                        <i class="fa fa-file-lines me-2" style="color:#6b7280;"></i><span class="dd-txt">Contratos</span>
+                      </a>
+                    </li>
+                  </ul>
+                </li>
+
+                {% elif rol == 'agente' %}
+                {# ── AGENTE: Ruta del día y Reportes como links directos ── #}
+                <li class="nav-item">
+                  <a href="{% url 'ruta_del_dia' %}">Ruta del día</a>
+                </li>
+                <li class="nav-item">
+                  <a href="{% url 'reportes' %}">Reportes</a>
+                </li>
+
+                {% elif rol == 'vendedor' %}
+                {# ── VENDEDOR: gestiona sus propiedades y contratos ── #}
+                <li class="nav-item">
+                  <a href="{% url 'propiedades_lista' %}">Propiedades</a>
+                </li>
+                <li class="nav-item">
+                  <a href="{% url 'contratos_lista' %}">Contratos</a>
+                </li>
+
+                {% else %}
+                {# ── COMPRADOR: solo Ruta del día (solo lectura) ── #}
+                <li class="nav-item">
+                  <a href="{% url 'ruta_del_dia' %}">Ruta del día</a>
+                </li>
+                {% endif %}
+
+                {% else %}
+                {# ── NO AUTENTICADO ── #}
+                <li class="nav-item">
+                  <a href="#servicios">Servicios</a>
+                </li>
+                <li class="nav-item">
+                  <a href="#como-funciona">Cómo funciona</a>
+                </li>
+                <li class="nav-item">
+                  <a href="#nosotros">Nosotros</a>
+                </li>
+                {% endif %}
+                {% endblock %}
+              </ul>
+            </div>
+
+            <div class="navbar-btn d-none d-lg-flex align-items-center gap-2">
+              {% if user.is_authenticated %}
+                <!-- Menú del usuario autenticado -->
+                <div class="dropdown">
+                  <button class="btn btn-sm navbar-auth-btn navbar-auth-solid dropdown-toggle"
+                    type="button" data-bs-toggle="dropdown" aria-expanded="false"
+                    style="display:flex;align-items:center;gap:8px;">
+                    <span style="width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,0.25);
+                      display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;">
+                      {{ user.first_name|first|upper|default:user.username|first|upper }}
+                    </span>
+                    {{ user.get_full_name|default:user.username }}
+                  </button>
+                  <ul class="dropdown-menu dropdown-menu-end shadow border-0"
+                    style="border-radius:10px;min-width:200px;padding:8px 0;margin-top:8px;">
+                    <li>
+                      <span class="dropdown-item-text text-muted" style="font-size:12px;padding:6px 16px;">
+                        {% if user.is_superuser %}
+                          Administrador
+                        {% elif rol %}
+                          {{ rol|capfirst }}
+                        {% else %}
+                          Sin rol asignado
+                        {% endif %}
+                      </span>
+                    </li>
+                    <li><hr class="dropdown-divider my-1"></li>
+                    <li>
+                      <a class="dropdown-item" href="{% url 'dashboard' %}"
+                        style="font-size:14px;padding:8px 16px;">
+                        <i class="lni lni-dashboard me-2" style="color:var(--primary);"></i>Dashboard
+                      </a>
+                    </li>
+                    {% if user.is_superuser %}
+                    <li>
+                      <a class="dropdown-item" href="{% url 'usuarios_lista' %}"
+                        style="font-size:14px;padding:8px 16px;">
+                        <i class="lni lni-users me-2" style="color:var(--primary);"></i>Usuarios y Roles
+                      </a>
+                    </li>
+                    <li>
+                      <a class="dropdown-item" href="/admin/"
+                        style="font-size:14px;padding:8px 16px;">
+                        <i class="lni lni-cog me-2" style="color:var(--primary);"></i>Panel Admin
+                      </a>
+                    </li>
+                    {% endif %}
+                    <li><hr class="dropdown-divider my-1"></li>
+                    <li>
+                      <a class="dropdown-item text-danger" href="{% url 'logout' %}"
+                        style="font-size:14px;padding:8px 16px;">
+                        <i class="lni lni-exit me-2"></i>Cerrar sesión
+                      </a>
+                    </li>
+                  </ul>
+                </div>
+              {% else %}
+                <!-- Botones para usuario no autenticado -->
+                <a href="{% url 'login' %}" class="btn btn-sm navbar-auth-btn navbar-auth-outline">
+                  Iniciar Sesión
+                </a>
+                <a href="{% url 'registro' %}" class="btn btn-sm navbar-auth-btn navbar-auth-solid">
+                  Registrarse
+                </a>
+              {% endif %}
+            </div>
+          </nav>
+          <!-- navbar -->
+        </div>
+      </div>
+      <!-- row -->
+    </div>
+    <!-- container -->
+  </section>
+  <div style="height: 3px; background: linear-gradient(to right, rgba(255,255,255,0.15), rgba(255,255,255,0.6), rgba(255,255,255,0.15));"></div>
+  <!--====== NAVBAR PART ENDS ======-->
+
+  <!--====== SIDEBAR PART START ======-->
+  <div class="sidebar-left">
+    <div class="sidebar-close">
+      <a class="close" href="#close"><i class="lni lni-close"></i></a>
+    </div>
+    <div class="sidebar-content">
+      <div class="sidebar-logo">
+        <a href="{% url 'inicio' %}">
+          <img src="{% static 'assets/images/logo.png' %}" alt="Logo"
+            style="height: 60px; width: auto; object-fit: contain;" />
+        </a>
+      </div>
+      <p class="text">Encuentra tu hogar ideal. Gestiona visitas y reservas de propiedades en un solo lugar.</p>
+      <div class="sidebar-menu">
+        <h5 class="menu-title">Accesos rápidos</h5>
+        <ul>
+          {% block sidebar_links %}
+          {% if user.is_authenticated %}
+            <li><a href="{% url 'dashboard' %}"><i class="lni lni-dashboard me-2"></i>Dashboard</a></li>
+            <li><a href="{% url 'propiedades_lista' %}"><i class="lni lni-home me-2"></i>Propiedades</a></li>
+            <li><a href="{% url 'calendario' %}"><i class="lni lni-calendar me-2"></i>Calendario</a></li>
+            <li><a href="{% url 'ruta_del_dia' %}"><i class="lni lni-map me-2"></i>Ruta del día</a></li>
+            {% if user.is_superuser or rol == 'agente' or rol == 'vendedor' %}
+            <li><a href="{% url 'compradores_lista' %}"><i class="lni lni-users me-2"></i>Compradores</a></li>
+            <li><a href="{% url 'contratos_lista' %}"><i class="lni lni-files me-2"></i>Contratos</a></li>
+            <li><a href="{% url 'reportes' %}"><i class="lni lni-bar-chart me-2"></i>Reportes</a></li>
+            {% endif %}
+            {% if user.is_superuser %}
+            <li><a href="{% url 'agentes_lista' %}"><i class="lni lni-user me-2"></i>Agentes</a></li>
+            <li><a href="{% url 'usuarios_lista' %}"><i class="lni lni-users me-2"></i>Usuarios y Roles</a></li>
+            <li><a href="/admin/"><i class="lni lni-cog me-2"></i>Panel Admin</a></li>
+            {% endif %}
+            <li><a href="{% url 'logout' %}" style="color:#ef4444;"><i class="lni lni-exit me-2"></i>Cerrar sesión</a></li>
+          {% else %}
+            <li><a href="{% url 'inicio' %}"><i class="lni lni-home me-2"></i>Inicio</a></li>
+            <li><a href="{% url 'propiedades_lista' %}"><i class="lni lni-search me-2"></i>Propiedades</a></li>
+            <li><a href="{% url 'login' %}"><i class="lni lni-enter me-2"></i>Iniciar Sesión</a></li>
+            <li><a href="{% url 'registro' %}"><i class="lni lni-user me-2"></i>Registrarse</a></li>
+          {% endif %}
+          {% endblock %}
+        </ul>
+      </div>
+      <!-- menu -->
+      <div class="sidebar-social align-items-center justify-content-center">
+        <h5 class="social-title">Síguenos en</h5>
+        <ul>
+          <li>
+            <a href="javascript:void(0)"><i class="lni lni-facebook-filled"></i></a>
+          </li>
+          <li>
+            <a href="javascript:void(0)"><i class="lni lni-twitter-original"></i></a>
+          </li>
+          <li>
+            <a href="javascript:void(0)"><i class="lni lni-linkedin-original"></i></a>
+          </li>
+          <li>
+            <a href="javascript:void(0)"><i class="lni lni-youtube"></i></a>
+          </li>
+        </ul>
+      </div>
+      <!-- sidebar social -->
+    </div>
+    <!-- content -->
+  </div>
+  <div class="overlay-left"></div>
+  <!--====== SIDEBAR PART ENDS ======-->
+
+  <!--====== CONTENIDO PRINCIPAL ======-->
+  <main style="padding-top: 85px;">
+    {% block contenido %}
+    {% endblock %}
+  </main>
+  <!--====== FIN CONTENIDO PRINCIPAL ======-->
+
+
+
+  <!-- Start Footer Area -->
+  <footer class="footer-area footer-eleven">
+    <div style="height: 3px; background: linear-gradient(to right, rgba(255,255,255,0.15), rgba(255,255,255,0.6), rgba(255,255,255,0.15));"></div>
+    <div class="footer-top">
+      <div class="container">
+        <div class="inner-content">
+          <div class="row">
+            <div class="col-lg-4 col-md-6 col-12">
+              <div class="footer-widget f-about">
+                <div class="logo">
+                  <a href="{% url 'inicio' %}">
+                    <img src="{% static 'assets/images/logo.png' %}" alt="Logo" class="img-fluid"
+                      style="height: 55px; width: auto; object-fit: contain;" />
+                  </a>
+                </div>
+                <p>Tu plataforma de confianza para reservar visitas y gestionar propiedades inmobiliarias en Ecuador.</p>
+                <p class="copyright-text">
+                  <span>© {% now "Y" %} Conexión Inmobiliaria.</span> Todos los derechos reservados.
+                </p>
+              </div>
+            </div>
+            <div class="col-lg-2 col-md-6 col-12">
+              <div class="footer-widget f-link">
+                <h5>Propiedades</h5>
+                <ul>
+                  <li><a href="javascript:void(0)">Casas en Venta</a></li>
+                  <li><a href="javascript:void(0)">Departamentos</a></li>
+                  <li><a href="javascript:void(0)">Terrenos</a></li>
+                  <li><a href="javascript:void(0)">Locales Comerciales</a></li>
+                </ul>
+              </div>
+            </div>
+            <div class="col-lg-2 col-md-6 col-12">
+              <div class="footer-widget f-link">
+                <h5>Servicios</h5>
+                <ul>
+                  <li><a href="javascript:void(0)">Reservar Visita</a></li>
+                  <li><a href="javascript:void(0)">Asesoría Legal</a></li>
+                  <li><a href="javascript:void(0)">Avalúos</a></li>
+                  <li><a href="javascript:void(0)">Crédito Hipotecario</a></li>
+                </ul>
+              </div>
+            </div>
+            <div class="col-lg-4 col-md-6 col-12">
+              <div class="footer-widget newsletter">
+                <h5>Novedades</h5>
+                <p>Suscríbete y recibe las mejores propiedades antes que nadie.</p>
+                <form action="#" method="get" class="newsletter-form">
+                  <input name="EMAIL" placeholder="Correo electrónico" required="required" type="email" />
+                  <div class="button">
+                    <button class="sub-btn">
+                      <i class="lni lni-envelope"></i>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <!--/ End Footer Area -->
+
+  <a href="#" class="scroll-top btn-hover">
+    <i class="lni lni-chevron-up"></i>
+  </a>
+
+  <!--====== JS ======-->
+  <script src="{% static 'assets/js/bootstrap.bundle.min.js' %}"></script>
+  <script src="{% static 'assets/js/glightbox.min.js' %}"></script>
+  <script src="{% static 'assets/js/tiny-slider.js' %}"></script>
+  <!-- main.js se carga solo en la landing; en el resto solo necesitamos el sticky del navbar -->
+  <script>
+    // Sticky navbar (extraído de main.js para que funcione en todas las páginas)
+    window.onscroll = function () {
+      var header_navbar = document.querySelector(".navbar-area");
+      if (!header_navbar) return;
+      if (window.pageYOffset > header_navbar.offsetTop) {
+        header_navbar.classList.add("sticky");
+      } else {
+        header_navbar.classList.remove("sticky");
+      }
+      var backToTop = document.querySelector(".scroll-top");
+      if (backToTop) {
+        backToTop.style.display =
+          (document.body.scrollTop > 50 || document.documentElement.scrollTop > 50)
+          ? "flex" : "none";
+      }
+    };
+  </script>
+
+  <!--====== jQuery (CDN) ======-->
+  <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+  <!--====== jQuery Validate (CDN) ======-->
+  <script src="https://cdn.jsdelivr.net/npm/jquery-validation@1.20.0/dist/jquery.validate.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jquery-validation@1.20.0/dist/additional-methods.min.js"></script>
+
+  <!--====== DataTables (CDN) ======-->
+  <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
+  <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
+  <script src="https://cdn.datatables.net/responsive/2.5.0/js/responsive.bootstrap5.min.js"></script>
+
+  <!--====== SweetAlert2 (CDN) ======-->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
+
+  <!--====== Bootstrap FileInput (CDN) ======-->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap-fileinput@5.5.3/js/fileinput.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap-fileinput@5.5.3/js/locales/es.js"></script>
+
+  <!--====== Chart.js (CDN) ======-->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+
+  <!--====== Driver.js (CDN) ======-->
+  <script src="https://cdn.jsdelivr.net/npm/driver.js@1.3.1/dist/driver.js.iife.js"></script>
+
+  <script>
+    // Cerrar navbar al hacer clic en toggler
+    let navbarToggler = document.querySelector(".navbar-nine .navbar-toggler");
+    navbarToggler.addEventListener("click", function () {
+      navbarToggler.classList.toggle("active");
+    });
+
+    // Sidebar izquierdo
+    let sidebarLeft  = document.querySelector(".sidebar-left");
+    let overlayLeft  = document.querySelector(".overlay-left");
+    let sidebarClose = document.querySelector(".sidebar-close .close");
+
+    overlayLeft.addEventListener("click", function () {
+      sidebarLeft.classList.toggle("open");
+      overlayLeft.classList.toggle("open");
+    });
+    sidebarClose.addEventListener("click", function () {
+      sidebarLeft.classList.remove("open");
+      overlayLeft.classList.remove("open");
+    });
+
+    // En mobile, el navbar colapsable también activa el sidebar
+    navbarToggler.addEventListener("click", function () {
+      sidebarLeft.classList.toggle("open");
+      overlayLeft.classList.toggle("open");
+    });
+
+    // ── Configuración global DataTables en español ─────
+    $(function() {
+      $.extend(true, $.fn.dataTable.defaults, {
+        language: { url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/es-ES.json' },
+        responsive: true,
+        pageLength: 10,
+        lengthMenu: [10, 25, 50, 100],
+        dom: '<"row align-items-center mb-3"<"col-sm-6"l><"col-sm-6 text-end"f>>rt<"row mt-3"<"col-sm-6"i><"col-sm-6"p>>',
+      });
+
+      // ── jQuery Validate: mensajes en español ─────────
+      $.extend($.validator.messages, {
+        required:   'Este campo es obligatorio.',
+        email:      'Ingresa un correo electrónico válido.',
+        minlength:  $.validator.format('Mínimo {0} caracteres.'),
+        maxlength:  $.validator.format('Máximo {0} caracteres.'),
+        min:        $.validator.format('El valor mínimo es {0}.'),
+        max:        $.validator.format('El valor máximo es {0}.'),
+        number:     'Ingresa un número válido.',
+        digits:     'Solo se permiten dígitos.',
+        equalTo:    'Las contraseñas no coinciden.',
+      });
+
+      // ── jQuery Validate: estilos Bootstrap ───────────
+      $.validator.setDefaults({
+        errorClass:   'is-invalid',
+        validClass:   'is-valid',
+        errorElement: 'div',
+        errorPlacement: function(error, element) {
+          error.addClass('invalid-feedback');
+          element.closest('.mb-3, .col-md-6, .col-md-4, .col-md-3, .col-12').append(error);
+        },
+        highlight: function(el) {
+          $(el).addClass('is-invalid').removeClass('is-valid');
+        },
+        unhighlight: function(el) {
+          $(el).addClass('is-valid').removeClass('is-invalid');
+        },
+      });
+
+      // ── SweetAlert2: delegación para confirmar eliminar
+      $(document).on('click', '[data-confirm-delete]', function(e) {
+        e.preventDefault();
+        const form   = $(this).closest('form');
+        const nombre = $(this).data('confirm-delete') || 'este elemento';
+        Swal.fire({
+          title:             '¿Eliminar?',
+          html:              `¿Seguro que deseas eliminar <strong>${nombre}</strong>?<br><small class="text-muted">Esta acción no se puede deshacer.</small>`,
+          icon:              'warning',
+          showCancelButton:  true,
+          confirmButtonColor:'#dc2626',
+          cancelButtonColor: '#6b7280',
+          confirmButtonText: 'Sí, eliminar',
+          cancelButtonText:  'Cancelar',
+          reverseButtons:    true,
+        }).then(result => { if (result.isConfirmed) form.submit(); });
+      });
+
+      // ── SweetAlert2: mensajes flash Django → toast ────
+      {% if messages %}{% for msg in messages %}
+      {% if msg.tags == 'success' %}
+      Swal.fire({ toast:true, position:'top-end', icon:'success', title:'{{ msg|escapejs }}', showConfirmButton:false, timer:3500, timerProgressBar:true });
+      {% elif msg.tags == 'error' %}
+      Swal.fire({ toast:true, position:'top-end', icon:'error',   title:'{{ msg|escapejs }}', showConfirmButton:false, timer:4500, timerProgressBar:true });
+      {% elif msg.tags == 'info' %}
+      Swal.fire({ toast:true, position:'top-end', icon:'info',    title:'{{ msg|escapejs }}', showConfirmButton:false, timer:3500, timerProgressBar:true });
+      {% elif msg.tags == 'warning' %}
+      Swal.fire({ toast:true, position:'top-end', icon:'warning', title:'{{ msg|escapejs }}', showConfirmButton:false, timer:3500, timerProgressBar:true });
+      {% endif %}
+      {% endfor %}{% endif %}
+    });
+  </script>
+
+  <!--====== Scripts extra por página ======-->
+  {% block scripts %}{% endblock %}
+
+</body>
+</html>

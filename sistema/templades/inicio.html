@@ -1,0 +1,425 @@
+{% extends 'PlantillaPrincipal.html' %}
+{% load static %}
+
+{% block titulo %}Conexión Inmobiliaria — Reservas y Visitas{% endblock %}
+
+{% block estilos %}
+<style>
+/* ── Reset main padding (hero ocupa el viewport completo) ── */
+main { padding-top: 0 !important; }
+
+/* ── HERO ──────────────────────────────────────────────── */
+.hero {
+  min-height: 100vh;
+  background: url("{% static 'assets/images/header/hero-image.jpg' %}") center/cover no-repeat;
+  position: relative;
+  display: flex; align-items: center;
+}
+.hero::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(15,30,80,.82) 0%, rgba(25,60,140,.65) 100%);
+}
+.hero-content { position: relative; z-index: 1; }
+.hero h1 {
+  font-size: clamp(32px, 5vw, 58px);
+  font-weight: 800; color: #fff; line-height: 1.15;
+  margin-bottom: 20px;
+}
+.hero h1 span { color: #60a5fa; }
+.hero p {
+  font-size: 18px; color: rgba(255,255,255,.82);
+  max-width: 520px; margin-bottom: 36px; line-height: 1.7;
+}
+.hero-btns { display: flex; gap: 14px; flex-wrap: wrap; }
+.btn-hero-primary {
+  background: #2563eb; color: #fff; border: 2px solid #2563eb;
+  padding: 14px 32px; border-radius: 8px; font-size: 16px;
+  font-weight: 600; text-decoration: none; transition: all .25s;
+  text-transform: none; letter-spacing: normal;
+}
+.btn-hero-primary:hover { background: #1d4ed8; border-color: #1d4ed8; color: #fff; }
+.btn-hero-outline {
+  background: transparent; color: #fff; border: 2px solid rgba(255,255,255,.6);
+  padding: 14px 32px; border-radius: 8px; font-size: 16px;
+  font-weight: 600; text-decoration: none; transition: all .25s;
+  text-transform: none; letter-spacing: normal;
+}
+.btn-hero-outline:hover { background: rgba(255,255,255,.15); color: #fff; }
+
+/* Stats flotantes */
+.hero-stats {
+  display: flex; gap: 32px; flex-wrap: wrap; margin-top: 52px;
+}
+.hero-stat .val {
+  font-size: 32px; font-weight: 800; color: #60a5fa; line-height: 1;
+}
+.hero-stat .lbl { font-size: 13px; color: rgba(255,255,255,.7); margin-top: 2px; }
+
+/* ── SECCIÓN COMÚN ─────────────────────────────────────── */
+.section { padding: 80px 0; }
+.section-alt { background: #f8faff; }
+.section-tag {
+  display: inline-block; background: rgba(37,99,235,.1); color: #2563eb;
+  font-size: 12px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .08em; padding: 5px 14px; border-radius: 20px; margin-bottom: 14px;
+}
+.section-title { font-size: clamp(24px,3.5vw,36px); font-weight: 800; color: #1e293b; margin-bottom: 14px; }
+.section-sub  { font-size: 16px; color: #64748b; max-width: 540px; line-height: 1.7; }
+
+/* ── SERVICIOS ─────────────────────────────────────────── */
+.service-card {
+  background: #fff; border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.07);
+  padding: 36px 28px; text-align: center;
+  transition: transform .25s, box-shadow .25s;
+  height: 100%;
+}
+.service-card:hover { transform: translateY(-6px); box-shadow: 0 12px 36px rgba(0,0,0,.13); }
+.service-icon {
+  width: 68px; height: 68px; border-radius: 16px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 30px; margin: 0 auto 20px;
+}
+.service-card h4 { font-size: 18px; font-weight: 700; color: #1e293b; margin-bottom: 10px; }
+.service-card p  { font-size: 14px; color: #64748b; line-height: 1.7; margin: 0; }
+
+/* ── ABOUT ─────────────────────────────────────────────── */
+.about-img-wrap { position: relative; }
+.about-img-wrap img { border-radius: 16px; width: 100%; object-fit: cover; max-height: 420px; }
+.about-badge {
+  position: absolute; bottom: -20px; right: -20px;
+  background: #2563eb; color: #fff; border-radius: 14px;
+  padding: 18px 22px; text-align: center;
+  box-shadow: 0 8px 24px rgba(37,99,235,.35);
+}
+.about-badge .num { font-size: 34px; font-weight: 800; line-height: 1; }
+.about-badge .txt { font-size: 12px; opacity: .85; margin-top: 2px; }
+.check-list { list-style: none; padding: 0; margin: 20px 0 28px; }
+.check-list li {
+  display: flex; align-items: flex-start; gap: 10px;
+  font-size: 15px; color: #374151; margin-bottom: 10px;
+}
+.check-list li i { color: #2563eb; font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+
+/* ── CÓMO FUNCIONA ─────────────────────────────────────── */
+.step-card {
+  text-align: center; padding: 20px;
+}
+.step-num {
+  width: 56px; height: 56px; border-radius: 50%;
+  background: #2563eb; color: #fff;
+  font-size: 22px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 18px;
+}
+.step-connector {
+  position: relative;
+}
+.step-connector::after {
+  content: '';
+  position: absolute; top: 28px; left: calc(50% + 28px);
+  width: calc(100% - 56px); height: 2px;
+  background: linear-gradient(to right, #2563eb, #93c5fd);
+  border-radius: 2px;
+}
+@media (max-width:767px) { .step-connector::after { display:none; } }
+
+/* ── CTA BANNER ────────────────────────────────────────── */
+.cta-banner {
+  background: url("{% static 'assets/images/call-action/overlay.png' %}") center/cover,
+              linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+  border-radius: 20px; padding: 56px 40px; text-align: center;
+  position: relative; overflow: hidden;
+}
+.cta-banner::before {
+  content: ''; position: absolute; inset: 0;
+  background: rgba(15,30,80,.55);
+}
+.cta-banner > * { position: relative; z-index: 1; }
+.cta-banner h2 { font-size: clamp(24px,3.5vw,38px); font-weight: 800; color: #fff; margin-bottom: 14px; }
+.cta-banner p  { font-size: 17px; color: rgba(255,255,255,.8); margin-bottom: 32px; }
+
+/* ── FOOTER override ───────────────────────────────────── */
+.footer-area { margin-top: 0; }
+</style>
+{% endblock %}
+
+
+{% block nav_links %}
+<li class="nav-item">
+  <a class="page-scroll active" href="#hero">Inicio</a>
+</li>
+<li class="nav-item">
+  <a class="page-scroll" href="#servicios">Servicios</a>
+</li>
+<li class="nav-item">
+  <a class="page-scroll" href="#como-funciona">Cómo funciona</a>
+</li>
+<li class="nav-item">
+  <a class="page-scroll" href="#nosotros">Nosotros</a>
+</li>
+{% if user.is_authenticated %}
+<li class="nav-item">
+  <a href="{% url 'dashboard' %}">Dashboard</a>
+</li>
+{% endif %}
+{% endblock %}
+
+
+{% block contenido %}
+
+<!-- ══════════════════════════════════════════════════════
+     HERO
+══════════════════════════════════════════════════════ -->
+<section class="hero" id="hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-7 hero-content">
+        <div class="section-tag mb-3" style="background:rgba(96,165,250,.15);color:#93c5fd;">
+          Sistema de Reservas Inmobiliarias
+        </div>
+        <h1>
+          Encuentra y reserva<br>
+          tu <span>propiedad ideal</span><br>
+          en minutos
+        </h1>
+        <p>
+          Agendamos visitas, organizamos rutas y cerramos ventas.
+          La plataforma diseñada para agentes y compradores exigentes en Ecuador.
+        </p>
+        <div class="hero-btns">
+          {% if user.is_authenticated %}
+            <a href="{% url 'dashboard' %}" class="btn-hero-primary">
+              <i class="fa fa-tachometer-alt me-2"></i>Ir al Dashboard
+            </a>
+            <a href="{% url 'propiedades_lista' %}" class="btn-hero-outline">
+              <i class="fa fa-home me-2"></i>Ver Propiedades
+            </a>
+          {% else %}
+            <a href="{% url 'registro' %}" class="btn-hero-primary">
+              <i class="fa fa-user me-2"></i>Crear cuenta gratis
+            </a>
+            <a href="{% url 'login' %}" class="btn-hero-outline">
+              <i class="fa fa-right-to-bracket me-2"></i>Iniciar sesión
+            </a>
+          {% endif %}
+        </div>
+
+        <!-- Stats -->
+        <div class="hero-stats">
+          <div class="hero-stat">
+            <div class="val">500+</div>
+            <div class="lbl">Propiedades activas</div>
+          </div>
+          <div class="hero-stat">
+            <div class="val">1,200+</div>
+            <div class="lbl">Visitas agendadas</div>
+          </div>
+          <div class="hero-stat">
+            <div class="val">98%</div>
+            <div class="lbl">Clientes satisfechos</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════
+     SERVICIOS
+══════════════════════════════════════════════════════ -->
+<section class="section section-alt" id="servicios">
+  <div class="container">
+    <div class="text-center mb-5">
+      <span class="section-tag">¿Qué ofrecemos?</span>
+      <h2 class="section-title">Todo lo que necesitas para comprar o vender</h2>
+      <p class="section-sub mx-auto">
+        Desde la primera visita hasta la firma del contrato, gestionamos cada paso del proceso.
+      </p>
+    </div>
+    <div class="row g-4">
+
+      <div class="col-lg-3 col-md-6">
+        <div class="service-card">
+            <div class="service-icon" style="background:rgba(37,99,235,.1);">
+            <i class="fa fa-calendar" style="color:#2563eb;"></i>
+          </div>
+          <h4>Agendamiento de Visitas</h4>
+          <p>Reserva visitas a inmuebles directamente desde el calendario interactivo, sin llamadas ni esperas.</p>
+        </div>
+      </div>
+
+      <div class="col-lg-3 col-md-6">
+        <div class="service-card">
+            <div class="service-icon" style="background:#dcfce7;">
+            <i class="fa fa-map" style="color:#16a34a;"></i>
+          </div>
+          <h4>Rutas Optimizadas</h4>
+          <p>Los agentes organizan y reordenan la secuencia de propiedades a visitar en el día con arrastre.</p>
+        </div>
+      </div>
+
+      <div class="col-lg-3 col-md-6">
+        <div class="service-card">
+          <div class="service-icon" style="background:#fef9c3;">
+            <i class="lni lni-files" style="color:#ca8a04;"></i>
+          </div>
+          <h4>Contratos de Venta</h4>
+          <p>Genera contratos digitales, calcula comisiones automáticamente y almacena documentos de forma segura.</p>
+        </div>
+      </div>
+
+      <div class="col-lg-3 col-md-6">
+        <div class="service-card">
+          <div class="service-icon" style="background:#fee2e2;">
+            <i class="lni lni-bar-chart" style="color:#dc2626;"></i>
+          </div>
+          <h4>Reportes en Tiempo Real</h4>
+          <p>Dashboard con KPIs de efectividad, comisiones por agente y tendencias mensuales de cierre.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════
+     CÓMO FUNCIONA
+══════════════════════════════════════════════════════ -->
+<section class="section" id="como-funciona">
+  <div class="container">
+    <div class="text-center mb-5">
+      <span class="section-tag">Proceso simple</span>
+      <h2 class="section-title">¿Cómo funciona?</h2>
+      <p class="section-sub mx-auto">En 4 pasos desde el registro hasta la firma del contrato.</p>
+    </div>
+    <div class="row g-4">
+
+      <div class="col-lg-3 col-md-6 step-connector">
+        <div class="step-card">
+          <div class="step-num">1</div>
+          <h5 class="fw-700 mb-2" style="font-weight:700;">Regístrate</h5>
+          <p style="font-size:14px;color:#64748b;">Crea tu cuenta como comprador en minutos. Sin costo, sin compromisos.</p>
+        </div>
+      </div>
+
+      <div class="col-lg-3 col-md-6 step-connector">
+        <div class="step-card">
+          <div class="step-num">2</div>
+          <h5 class="fw-700 mb-2" style="font-weight:700;">Explora propiedades</h5>
+          <p style="font-size:14px;color:#64748b;">Filtra por tipo, ciudad, precio y área. Encuentra el inmueble que se ajuste a tu presupuesto.</p>
+        </div>
+      </div>
+
+      <div class="col-lg-3 col-md-6 step-connector">
+        <div class="step-card">
+          <div class="step-num">3</div>
+          <h5 class="fw-700 mb-2" style="font-weight:700;">Agenda la visita</h5>
+          <p style="font-size:14px;color:#64748b;">Elige fecha y hora directamente en el calendario. Un agente confirmará en menos de 24h.</p>
+        </div>
+      </div>
+
+      <div class="col-lg-3 col-md-6">
+        <div class="step-card">
+          <div class="step-num">4</div>
+          <h5 class="fw-700 mb-2" style="font-weight:700;">Cierra la venta</h5>
+          <p style="font-size:14px;color:#64748b;">Negocia con el agente y firma el contrato digital. ¡Listo, tu propiedad te espera!</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════
+     NOSOTROS
+══════════════════════════════════════════════════════ -->
+<section class="section section-alt" id="nosotros">
+  <div class="container">
+    <div class="row align-items-center g-5">
+
+      <div class="col-lg-5">
+        <div class="about-img-wrap">
+          <img src="{% static 'assets/images/about/about-img1.jpg' %}" alt="Equipo Conexión Inmobiliaria">
+          <div class="about-badge">
+            <div class="num">10+</div>
+            <div class="txt">años de experiencia</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-7">
+        <span class="section-tag">Nuestra historia</span>
+        <h2 class="section-title">Expertos en conectar personas con propiedades</h2>
+        <p style="font-size:15px;color:#64748b;line-height:1.8;margin-bottom:16px;">
+          Conexión Inmobiliaria nació con la misión de digitalizar el proceso de compra-venta de inmuebles en Ecuador.
+          Combinamos tecnología moderna con un equipo humano comprometido para ofrecerte la mejor experiencia.
+        </p>
+        <ul class="check-list">
+          <li>
+            <i class="lni lni-checkmark-circle"></i>
+            <span>Agentes certificados con amplio conocimiento del mercado local.</span>
+          </li>
+          <li>
+            <i class="lni lni-checkmark-circle"></i>
+            <span>Calendario interactivo para agendar y gestionar visitas en tiempo real.</span>
+          </li>
+          <li>
+            <i class="lni lni-checkmark-circle"></i>
+            <span>Reportes detallados de efectividad y comisiones para cada agente.</span>
+          </li>
+          <li>
+            <i class="lni lni-checkmark-circle"></i>
+            <span>Proceso de captación guiado paso a paso con tour instructivo.</span>
+          </li>
+        </ul>
+        <a href="{% url 'registro' %}" class="btn primary-btn"
+          style="text-transform:none;letter-spacing:normal;padding:13px 32px;border-radius:8px;font-size:15px;">
+          <i class="lni lni-user me-2"></i>Únete ahora — es gratis
+        </a>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════
+     CTA BANNER
+══════════════════════════════════════════════════════ -->
+<section class="section">
+  <div class="container">
+    <div class="cta-banner">
+      <h2>¿Listo para encontrar tu propiedad ideal?</h2>
+      <p>Regístrate gratis y agenda tu primera visita hoy mismo.<br>Sin costos ocultos, sin compromisos.</p>
+      <div class="d-flex gap-3 justify-content-center flex-wrap">
+        {% if user.is_authenticated %}
+          <a href="{% url 'propiedades_lista' %}" class="btn-hero-primary">
+            <i class="lni lni-home me-2"></i>Ver propiedades
+          </a>
+          <a href="{% url 'calendario' %}" class="btn-hero-outline">
+            <i class="lni lni-calendar me-2"></i>Ir al calendario
+          </a>
+        {% else %}
+          <a href="{% url 'registro' %}" class="btn-hero-primary">
+            <i class="lni lni-user me-2"></i>Crear cuenta gratis
+          </a>
+          <a href="{% url 'login' %}" class="btn-hero-outline">
+            <i class="lni lni-enter me-2"></i>Ya tengo cuenta
+          </a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</section>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'assets/js/main.js' %}"></script>
+{% endblock %}

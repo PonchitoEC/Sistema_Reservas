@@ -1,0 +1,14 @@
+# Framework principal
+Django==5.2.15
+
+# Servidor WSGI para producción (requerido por Render)
+gunicorn==22.0.0
+
+# PostgreSQL
+psycopg2-binary==2.9.9
+
+# Parseo de DATABASE_URL (Render lo inyecta automáticamente)
+dj-database-url==2.2.0
+
+# Archivos estáticos en producción sin servidor externo
+whitenoise==6.7.0
