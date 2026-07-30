@@ -24,7 +24,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # En producción se lee desde variable de entorno SECRET_KEY
 SECRET_KEY = os.environ.get(
     'SECRET_KEY',
-    'django-insecure-9)=5gob773u#4b(_mfgg%k05*)o)s%v2wi%0-^gayf25wb%3t0'
+    'django-insecure-clave-solo-para-desarrollo-local'
 )
 
 # DEBUG = False en producción (Render setea la variable DJANGO_DEBUG=False)
@@ -116,6 +116,7 @@ elif os.environ.get('POSTGRES_DB'):
             'PASSWORD': os.environ.get('POSTGRES_PASSWORD', ''),
             'HOST': os.environ.get('POSTGRES_HOST', '127.0.0.1'),
             'PORT': int(os.environ.get('POSTGRES_PORT', 5432) or 5432),
+            'OPTIONS': {'sslmode': 'require'},
         }
     }
 else:
@@ -203,7 +204,6 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
 EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
 EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True') == 'True'
-EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'ponchitoec43@gmail.com')
-# Contraseña de aplicación (mejor pasar por variable de entorno en producción)
-EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', 'jfgp irzd ihwf xmod')
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER

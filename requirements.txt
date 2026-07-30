@@ -4,8 +4,8 @@ Django==5.2.15
 # Servidor WSGI para producción (requerido por Render)
 gunicorn==22.0.0
 
-# PostgreSQL
-psycopg2-binary==2.9.9
+# PostgreSQL - psycopg3 (compatible con Python 3.14)
+psycopg[binary]==3.2.4
 
 # Parseo de DATABASE_URL (Render lo inyecta automáticamente)
 dj-database-url==2.2.0
