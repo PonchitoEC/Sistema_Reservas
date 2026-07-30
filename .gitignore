@@ -1,0 +1,30 @@
+# Credenciales y variables de entorno
+.env
+CREDENCIALES.txt
+
+# Base de datos local
+*.db
+*.sqlite3
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+venv/
+.venv/
+env/
+
+# Django archivos estáticos recolectados
+staticfiles/
+
+# Archivos de media subidos por usuarios (en producción van a un bucket)
+media/
+
+# Editores
+.vscode/
+.idea/
+*.swp
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
