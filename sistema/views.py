@@ -536,7 +536,10 @@ def comprador_editar(request, pk):
                 comprador.presupuesto_max = request.POST.get('presupuesto_max') or None
                 comprador.estado          = request.POST.get('estado', 'prospecto')
                 agente_id                 = request.POST.get('agente')
-                comprador.agente = AgenteInmobiliario.objects.filter(pk=agente_id).first() if agente_id else None
+                if rol == 'agente':
+                    comprador.agente = request.user.agente
+                else:
+                    comprador.agente = AgenteInmobiliario.objects.filter(pk=agente_id).first() if agente_id else None
                 _validar_modelo(comprador)
                 comprador.save()
         except (ValidationError, IntegrityError, ValueError) as exc:
@@ -693,6 +696,12 @@ def contrato_enviar_correo(request, pk):
 @rol_requerido('administrador', 'agente')
 def contrato_editar(request, pk):
     contrato    = get_object_or_404(ContratoVenta, pk=pk)
+    rol = obtener_rol(request.user)
+    if rol == 'agente':
+        perfil = _obtener_o_crear_perfil_agente(request.user)
+        if not perfil or contrato.agente_id != perfil.pk:
+            messages.error(request, 'No tienes permiso para editar este contrato.')
+            return redirect('contratos_lista')
     propiedades = Propiedad.objects.select_related('agente__user').all().order_by('estado', 'titulo')
     compradores = Comprador.objects.select_related('user').all()
     agentes     = AgenteInmobiliario.objects.filter(estado='activo').select_related('user')
@@ -930,10 +939,20 @@ def visita_crear(request):
                 'error': 'No puedes agendar una visita en una fecha u hora pasada.'
             }, status=400)
 
+        propiedad = get_object_or_404(Propiedad, pk=data['propiedad'])
+        comprador = get_object_or_404(Comprador, pk=data['comprador'])
+        agente = AgenteInmobiliario.objects.filter(pk=data.get('agente')).first()
+        if rol == 'agente':
+            agente = _obtener_o_crear_perfil_agente(request.user)
+            if not agente:
+                return JsonResponse({'ok': False, 'error': 'Tu perfil de agente no existe.'}, status=403)
+            if propiedad.agente_id != agente.pk or comprador.agente_id != agente.pk:
+                return JsonResponse({'ok': False, 'error': 'Solo puedes agendar visitas con tus propiedades y compradores.'}, status=403)
+
         visita = Visita(
-            propiedad    = get_object_or_404(Propiedad,  pk=data['propiedad']),
-            comprador    = get_object_or_404(Comprador,  pk=data['comprador']),
-            agente       = AgenteInmobiliario.objects.filter(pk=data.get('agente')).first(),
+            propiedad    = propiedad,
+            comprador    = comprador,
+            agente       = agente,
             fecha_hora   = fecha_hora_dt,
             duracion_min = int(data.get('duracion_min', 30)),
             orden_ruta   = int(data.get('orden_ruta', 1)),
@@ -1612,6 +1631,20 @@ def usuario_editar(request, pk):
         elif rol_sel in ('Agente', 'Comprador'):
             grupo, _ = Group.objects.get_or_create(name=rol_sel)
             usuario.groups.set([grupo])
+            if rol_sel == 'Agente' and not hasattr(usuario, 'agente'):
+                perfil = AgenteInmobiliario(
+                    user=usuario, cedula=f'AGT{usuario.pk:010d}',
+                    telefono='0000000000', comision_pct=Decimal('3.00'), estado='activo',
+                )
+                _validar_modelo(perfil)
+                perfil.save()
+            elif rol_sel == 'Comprador' and not hasattr(usuario, 'comprador'):
+                perfil = Comprador(
+                    user=usuario, cedula=f'CMP{usuario.pk:010d}',
+                    telefono='0000000000', estado='prospecto',
+                )
+                _validar_modelo(perfil)
+                perfil.save()
         else:
             usuario.groups.clear()
 
@@ -1641,7 +1674,11 @@ def usuario_eliminar(request, pk):
 
     if request.method == 'POST':
         nombre = usuario.get_full_name() or usuario.username
-        usuario.delete()
+        try:
+            usuario.delete()
+        except ProtectedError:
+            messages.error(request, 'No se puede eliminar el usuario porque tiene contratos asociados. Puedes desactivarlo en su lugar.')
+            return redirect('usuarios_lista')
         messages.success(request, f'Usuario {nombre} eliminado correctamente.')
         return redirect('usuarios_lista')
 

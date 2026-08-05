@@ -139,6 +139,44 @@ class PersistenciaSeguraTests(TestCase):
         self.assertRedirects(response, reverse('propiedades_lista'))
         self.assertTrue(Propiedad.objects.filter(pk=contrato.propiedad_id).exists())
 
+    def test_todos_los_botones_editar_abren_sin_error(self):
+        call_command('crear_usuarios_produccion', stdout=StringIO())
+        casos = []
+        casos.extend(('propiedad_editar', obj.pk) for obj in Propiedad.objects.all())
+        casos.extend(('agente_editar', obj.pk) for obj in AgenteInmobiliario.objects.all())
+        casos.extend(('comprador_editar', obj.pk) for obj in Comprador.objects.all())
+        casos.extend(('contrato_editar', obj.pk) for obj in ContratoVenta.objects.all())
+        casos.extend(('usuario_editar', obj.pk) for obj in User.objects.all())
+        for nombre, pk in casos:
+            with self.subTest(ruta=nombre, pk=pk):
+                self.assertEqual(self.client.get(reverse(nombre, args=[pk])).status_code, 200)
+
+    def test_editar_rol_crea_perfil_y_toggle_activo_funciona(self):
+        usuario = User.objects.create_user(
+            'usuario_sin_perfil', 'perfil@example.com', 'password123',
+            first_name='Usuario', last_name='Prueba',
+        )
+        response = self.client.post(reverse('usuario_editar', args=[usuario.pk]), {
+            'nombre': usuario.first_name, 'apellido': usuario.last_name,
+            'username': usuario.username, 'email': usuario.email,
+            'rol': 'Agente', 'activo': '1', 'password1': '', 'password2': '',
+        })
+        self.assertRedirects(response, reverse('usuarios_lista'))
+        self.assertTrue(AgenteInmobiliario.objects.filter(user=usuario).exists())
+
+        response = self.client.post(reverse('usuario_toggle_activo', args=[usuario.pk]))
+        self.assertRedirects(response, reverse('usuarios_lista'))
+        usuario.refresh_from_db()
+        self.assertFalse(usuario.is_active)
+
+    def test_eliminar_usuario_con_contrato_no_genera_error_500(self):
+        call_command('crear_usuarios_produccion', stdout=StringIO())
+        contrato = ContratoVenta.objects.get(numero_contrato='DEMO-VENTA-001')
+        usuario = contrato.comprador.user
+        response = self.client.post(reverse('usuario_eliminar', args=[usuario.pk]))
+        self.assertRedirects(response, reverse('usuarios_lista'))
+        self.assertTrue(User.objects.filter(pk=usuario.pk).exists())
+
 
 class FormulariosYContratosTests(TestCase):
     def setUp(self):

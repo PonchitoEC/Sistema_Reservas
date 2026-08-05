@@ -566,29 +566,37 @@
   <script>
     // Cerrar navbar al hacer clic en toggler
     let navbarToggler = document.querySelector(".navbar-nine .navbar-toggler");
-    navbarToggler.addEventListener("click", function () {
-      navbarToggler.classList.toggle("active");
-    });
+    if (navbarToggler) {
+      navbarToggler.addEventListener("click", function () {
+        navbarToggler.classList.toggle("active");
+      });
+    }
 
     // Sidebar izquierdo
     let sidebarLeft  = document.querySelector(".sidebar-left");
     let overlayLeft  = document.querySelector(".overlay-left");
     let sidebarClose = document.querySelector(".sidebar-close .close");
 
-    overlayLeft.addEventListener("click", function () {
-      sidebarLeft.classList.toggle("open");
-      overlayLeft.classList.toggle("open");
-    });
-    sidebarClose.addEventListener("click", function () {
-      sidebarLeft.classList.remove("open");
-      overlayLeft.classList.remove("open");
-    });
+    if (overlayLeft && sidebarLeft) {
+      overlayLeft.addEventListener("click", function () {
+        sidebarLeft.classList.toggle("open");
+        overlayLeft.classList.toggle("open");
+      });
+    }
+    if (sidebarClose && sidebarLeft && overlayLeft) {
+      sidebarClose.addEventListener("click", function () {
+        sidebarLeft.classList.remove("open");
+        overlayLeft.classList.remove("open");
+      });
+    }
 
     // En mobile, el navbar colapsable también activa el sidebar
-    navbarToggler.addEventListener("click", function () {
-      sidebarLeft.classList.toggle("open");
-      overlayLeft.classList.toggle("open");
-    });
+    if (navbarToggler && sidebarLeft && overlayLeft) {
+      navbarToggler.addEventListener("click", function () {
+        sidebarLeft.classList.toggle("open");
+        overlayLeft.classList.toggle("open");
+      });
+    }
 
     // ── Configuración global DataTables en español ─────
     $(function() {
