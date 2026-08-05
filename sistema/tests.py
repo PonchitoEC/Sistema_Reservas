@@ -1,9 +1,12 @@
 from decimal import Decimal
+from datetime import timedelta
+import json
 
 from django.contrib.auth.models import Group, User
 from django.core import mail
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 
 from .models import AgenteInmobiliario, Comprador, ContratoVenta, Propiedad
 
@@ -299,3 +302,131 @@ class FormulariosYContratosTests(TestCase):
         self.assertEqual(mail.outbox[0].to, [comprador_user.email])
         self.assertIn('Terreno prueba', mail.outbox[0].body)
         self.assertIn('firmado', mail.outbox[0].body.lower())
+
+
+@override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+class AdministradorFlujoCompletoTests(TestCase):
+    """Garantiza que César administre registros de cualquier agente sin cambiar de sesión."""
+
+    def setUp(self):
+        self.cesar = User.objects.create_superuser(
+            username='cesar',
+            email='cesar.unapucha6741@utc.edu.ec',
+            password='contraseña-solo-pruebas',
+        )
+        agente_user = User.objects.create_user('agente_externo', 'externo@example.com')
+        self.agente = AgenteInmobiliario.objects.create(
+            user=agente_user,
+            cedula='0503112345',
+            telefono='0999999999',
+            comision_pct=Decimal('3.00'),
+        )
+        comprador_user = User.objects.create_user(
+            'comprador_externo', 'comprador@example.com', first_name='Cliente', last_name='Demo'
+        )
+        self.comprador = Comprador.objects.create(
+            user=comprador_user,
+            cedula='0550626741',
+            telefono='0988888888',
+            agente=self.agente,
+        )
+        self.client.force_login(self.cesar)
+
+    def test_rol_administrador_disponible_en_todas_las_plantillas(self):
+        response = self.client.get(reverse('propiedades_lista'))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['rol'], 'administrador')
+        self.assertContains(response, reverse('propiedad_crear'))
+        self.assertContains(response, '/admin/')
+
+    def test_cesar_ejecuta_flujo_de_otro_agente(self):
+        response = self.client.post(reverse('propiedad_crear'), {
+            'titulo': 'Casa administrada por César',
+            'tipo': 'casa',
+            'descripcion': 'Prueba del flujo administrativo',
+            'precio': '100000.00',
+            'area_m2': '120.00',
+            'dormitorios': '3',
+            'banos': '2',
+            'parqueaderos': '1',
+            'direccion': 'Dirección de prueba',
+            'ciudad': 'Latacunga',
+            'sector': 'Centro',
+            'estado': 'disponible',
+            'agente': self.agente.pk,
+        })
+        self.assertRedirects(response, reverse('propiedades_lista'))
+        propiedad = Propiedad.objects.get(titulo='Casa administrada por César')
+        self.assertEqual(propiedad.agente, self.agente)
+
+        fecha = timezone.now() + timedelta(days=2)
+        response = self.client.post(
+            reverse('visita_crear'),
+            data=json.dumps({
+                'propiedad': propiedad.pk,
+                'comprador': self.comprador.pk,
+                'agente': self.agente.pk,
+                'fecha_hora': fecha.isoformat(),
+                'duracion_min': 30,
+                'orden_ruta': 1,
+                'estado': 'pendiente',
+                'notas': 'Creada por el administrador',
+            }),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 201)
+        visita_id = response.json()['id']
+
+        response = self.client.post(
+            reverse('reordenar_ruta'),
+            data=json.dumps({'orden': [visita_id]}),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 200)
+        response = self.client.patch(
+            reverse('confirmar_asistencia', args=[visita_id]),
+            data='{}',
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['estado'], 'confirmada')
+
+        response = self.client.post(reverse('contrato_crear'), {
+            'propiedad': propiedad.pk,
+            'comprador': self.comprador.pk,
+            'agente': self.agente.pk,
+            'precio_acordado': '95000.00',
+            'numero_contrato': 'ADMIN-FLUJO-001',
+            'estado': 'en_revision',
+            'observaciones': 'Creado por César',
+        })
+        self.assertRedirects(response, reverse('contratos_lista'))
+        contrato = ContratoVenta.objects.get(numero_contrato='ADMIN-FLUJO-001')
+
+        response = self.client.post(reverse('contrato_editar', args=[contrato.pk]), {
+            'propiedad': propiedad.pk,
+            'comprador': self.comprador.pk,
+            'agente': self.agente.pk,
+            'precio_acordado': '95000.00',
+            'numero_contrato': contrato.numero_contrato,
+            'estado': 'firmado',
+            'fecha_firma': timezone.localdate().isoformat(),
+            'observaciones': 'Firmado por César',
+        })
+        self.assertRedirects(response, reverse('contratos_lista'))
+        contrato.refresh_from_db()
+        propiedad.refresh_from_db()
+        self.assertEqual(contrato.estado, 'firmado')
+        self.assertEqual(propiedad.estado, 'vendida')
+        self.assertEqual(contrato.comision_calculada, Decimal('2850.00'))
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_cesar_accede_al_panel_admin_y_gestion(self):
+        for nombre in (
+            'dashboard', 'propiedades_lista', 'propiedad_crear', 'agentes_lista',
+            'agente_crear', 'compradores_lista', 'contratos_lista', 'contrato_crear',
+            'calendario', 'ruta_del_dia', 'reportes', 'usuarios_lista', 'usuario_crear',
+        ):
+            with self.subTest(ruta=nombre):
+                self.assertEqual(self.client.get(reverse(nombre)).status_code, 200)
+        self.assertEqual(self.client.get('/admin/').status_code, 200)

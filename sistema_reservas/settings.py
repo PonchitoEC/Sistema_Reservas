@@ -79,6 +79,10 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                # Hace disponible `rol` en todas las plantillas. Así el
+                # administrador conserva todos los controles aunque una vista
+                # no envíe el rol manualmente en su contexto.
+                'sistema.context_processors.rol_usuario',
             ],
         },
     },
