@@ -1,4 +1,6 @@
 import logging
+import smtplib
+import socket
 from datetime import date
 from decimal import Decimal, InvalidOperation
 
@@ -256,14 +258,17 @@ class ContratoVenta(models.Model):
             self._recalcular_estado_propiedad(self.propiedad)
 
     def _enviar_notificacion_compra(self):
+        self._ultimo_error_email = ''
         comprador_user = getattr(self.comprador, 'user', None)
         if not comprador_user or not comprador_user.email:
             logger.warning('El comprador no tiene email registrado. usuario=%s contrato=%s', getattr(comprador_user, 'username', None), self.numero_contrato)
+            self._ultimo_error_email = 'El comprador no tiene un correo registrado.'
             return False
 
         usa_smtp = settings.EMAIL_BACKEND == 'django.core.mail.backends.smtp.EmailBackend'
         if usa_smtp and (not settings.EMAIL_HOST_USER or not settings.EMAIL_HOST_PASSWORD):
             logger.error('SMTP no configurado; no se puede enviar el contrato %s', self.numero_contrato)
+            self._ultimo_error_email = 'Faltan EMAIL_HOST_USER o EMAIL_HOST_PASSWORD en Render.'
             return False
 
         tipo_propiedad = self.propiedad.get_tipo_display()
@@ -287,7 +292,20 @@ class ContratoVenta(models.Model):
                 fail_silently=False,
             )
             return True
+        except smtplib.SMTPAuthenticationError:
+            self._ultimo_error_email = 'Gmail rechazó la autenticación. Guarda una contraseña de aplicación vigente y vuelve a desplegar.'
+            logger.exception('Gmail rechazo la autenticacion SMTP')
+            return False
+        except smtplib.SMTPRecipientsRefused:
+            self._ultimo_error_email = 'El servidor rechazó el correo del comprador.'
+            logger.exception('El servidor rechazo al destinatario %s', comprador_user.email)
+            return False
+        except (smtplib.SMTPConnectError, smtplib.SMTPServerDisconnected, socket.timeout, TimeoutError, OSError):
+            self._ultimo_error_email = 'Render no pudo conectarse con Gmail. Revisa SMTP, puerto 587 y TLS.'
+            logger.exception('Fallo de conexion SMTP con Gmail')
+            return False
         except Exception:
+            self._ultimo_error_email = 'Ocurrió un error inesperado durante el envío. Revisa los logs de Render.'
             logger.exception('No se pudo enviar el correo de confirmación al comprador %s', comprador_user.email)
             return False
 

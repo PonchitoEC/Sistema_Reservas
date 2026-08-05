@@ -689,7 +689,8 @@ def contrato_enviar_correo(request, pk):
     if contrato._enviar_notificacion_compra():
         messages.success(request, f'Correo enviado al comprador ({getattr(contrato.comprador.user, "email", "—")}).')
     else:
-        messages.error(request, 'No se pudo enviar el correo. Verifica el email del comprador y la configuración SMTP de Render.')
+        detalle = getattr(contrato, '_ultimo_error_email', '')
+        messages.error(request, f'No se pudo enviar el correo. {detalle}')
     return redirect('contratos_lista')
 
 
