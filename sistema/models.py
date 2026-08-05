@@ -5,7 +5,7 @@ from decimal import Decimal, InvalidOperation
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.mail import send_mail
-from django.db import models, IntegrityError
+from django.db import models, IntegrityError, transaction
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
@@ -302,7 +302,6 @@ class ContratoVenta(models.Model):
                 self.fecha_firma = None
 
         self._asegurar_numero_contrato()
-        self._sincronizar_estado_propiedad()
 
         # Calcula la comisión automáticamente al guardar
         if self.agente:
@@ -317,11 +316,6 @@ class ContratoVenta(models.Model):
         if self.estado == 'firmado' and not self.fecha_firma:
             self.fecha_firma = timezone.now().date()
 
-        # Marca la propiedad como vendida al firmar
-        if self.estado == 'firmado' and self.propiedad.estado != 'vendida':
-            self.propiedad.estado = 'vendida'
-            self.propiedad.save()
-
         was_firmado = False
         if self.pk:
             previous = ContratoVenta.objects.filter(pk=self.pk).values_list('estado', flat=True).first()
@@ -334,7 +328,10 @@ class ContratoVenta(models.Model):
         max_attempts = 5
         while True:
             try:
-                super().save(*args, **kwargs)
+                # El savepoint permite reintentar una colision UNIQUE también
+                # cuando la vista se ejecuta dentro de una transacción.
+                with transaction.atomic():
+                    super().save(*args, **kwargs)
                 break
             except IntegrityError as e:
                 # Solo reintentar si es por número de contrato duplicado
@@ -351,5 +348,10 @@ class ContratoVenta(models.Model):
                 # Re-raise si no es el caso esperado
                 raise
 
+        # Cambiar el estado solo después de que el contrato exista realmente.
+        # La vista envuelve ambas escrituras en una misma transacción.
+        self._sincronizar_estado_propiedad()
+
         if self.estado == 'firmado' and not was_firmado:
+            # El envío ya captura sus propios errores y no debe impedir el save.
             self._enviar_notificacion_compra()

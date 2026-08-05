@@ -7,7 +7,9 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.urls import reverse
 from django.http import JsonResponse
+from django.core.exceptions import ValidationError
 from django.views.decorators.http import require_POST, require_http_methods
+from django.db import IntegrityError, transaction
 from django.db.models import Count, Sum, Avg, Q
 from django.db.models.functions import TruncMonth
 import json
@@ -23,6 +25,34 @@ def _parse_decimal(value):
         return Decimal(str(value))
     except (InvalidOperation, TypeError, ValueError):
         return None
+
+
+def _errores_validacion(exc):
+    """Convierte errores de Django/BD en mensajes aptos para el usuario."""
+    if isinstance(exc, ValidationError):
+        if hasattr(exc, 'message_dict'):
+            return [mensaje for mensajes in exc.message_dict.values() for mensaje in mensajes]
+        return list(exc.messages)
+    return ['No se pudieron guardar los datos. Revisa valores duplicados o inválidos.']
+
+
+def _validar_modelo(instancia, exclude=None):
+    instancia.full_clean(exclude=exclude or [])
+
+
+def _mostrar_errores_guardado(request, exc):
+    for error in _errores_validacion(exc):
+        messages.error(request, error)
+
+
+def _parse_entero_no_negativo(value, campo):
+    try:
+        numero = int(value or 0)
+    except (TypeError, ValueError):
+        raise ValidationError({campo: 'Debe ser un número entero.'})
+    if numero < 0:
+        raise ValidationError({campo: 'No puede ser negativo.'})
+    return numero
 
 
 def _obtener_o_crear_perfil_agente(user):
@@ -131,25 +161,27 @@ def vista_registro(request):
             messages.error(request, 'La contraseña debe tener al menos 6 caracteres.')
             return render(request, 'registro.html', {'datos': request.POST})
 
-        # Crear usuario y perfil de comprador
-        user = User.objects.create_user(
-            username=username,
-            email=email,
-            password=password1,
-            first_name=nombre,
-            last_name=apellido,
-        )
+        # Usuario, grupo y perfil constituyen una sola operación: si cualquiera
+        # falla, no queda una cuenta incompleta en la base.
+        try:
+            with transaction.atomic():
+                user = User(
+                    username=username, email=email,
+                    first_name=nombre, last_name=apellido,
+                )
+                user.set_password(password1)
+                _validar_modelo(user)
+                user.save()
 
-        # Asignar al grupo Comprador
-        grupo_comprador, _ = Group.objects.get_or_create(name='Comprador')
-        user.groups.add(grupo_comprador)
+                comprador = Comprador(user=user, cedula=cedula, telefono=telefono)
+                _validar_modelo(comprador)
+                comprador.save()
 
-        # Crear perfil Comprador
-        Comprador.objects.create(
-            user=user,
-            cedula=cedula,
-            telefono=telefono,
-        )
+                grupo_comprador, _ = Group.objects.get_or_create(name='Comprador')
+                user.groups.add(grupo_comprador)
+        except (ValidationError, IntegrityError, ValueError) as exc:
+            _mostrar_errores_guardado(request, exc)
+            return render(request, 'registro.html', {'datos': request.POST})
 
         # Login automático tras registro
         login(request, user)
@@ -248,18 +280,24 @@ def propiedad_crear(request):
     rol     = obtener_rol(request.user)
     agentes = AgenteInmobiliario.objects.filter(estado='activo').select_related('user')
     if request.method == 'POST':
-        p = Propiedad()
-        _propiedad_desde_post(request, p)
-        # Si es agente o vendedor, solo puede crear propiedades asignadas a sí mismo
-        if rol in {'agente', 'vendedor'}:
-            perfil = _obtener_o_crear_perfil_agente(request.user)
-            if not perfil:
-                messages.error(request, 'Tu perfil de agente/vendedor no existe.')
-                return redirect('dashboard')
-            p.agente = perfil
-        p.save()
-        messages.success(request, f'Propiedad "{p.titulo}" creada correctamente.')
-        return redirect('propiedades_lista')
+        try:
+            with transaction.atomic():
+                p = Propiedad()
+                _propiedad_desde_post(request, p)
+                # Si es agente o vendedor, solo puede crear propiedades asignadas a sí mismo
+                if rol in {'agente', 'vendedor'}:
+                    perfil = _obtener_o_crear_perfil_agente(request.user)
+                    if not perfil:
+                        messages.error(request, 'Tu perfil de agente/vendedor no existe.')
+                        return redirect('dashboard')
+                    p.agente = perfil
+                _validar_modelo(p)
+                p.save()
+        except (ValidationError, IntegrityError, ValueError) as exc:
+            _mostrar_errores_guardado(request, exc)
+        else:
+            messages.success(request, f'Propiedad "{p.titulo}" creada correctamente.')
+            return redirect('propiedades_lista')
     return render(request, 'propiedad_form.html', {
         'accion': 'Crear',
         'agentes': agentes,
@@ -286,13 +324,19 @@ def propiedad_editar(request, pk):
             return redirect('propiedades_lista')
 
     if request.method == 'POST':
-        _propiedad_desde_post(request, propiedad)
-        # El agente o vendedor no puede reasignar la propiedad a otro agente
-        if rol in {'agente', 'vendedor'}:
-            propiedad.agente = _obtener_o_crear_perfil_agente(request.user)
-        propiedad.save()
-        messages.success(request, f'Propiedad "{propiedad.titulo}" actualizada.')
-        return redirect('propiedades_lista')
+        try:
+            with transaction.atomic():
+                _propiedad_desde_post(request, propiedad)
+                # El agente o vendedor no puede reasignar la propiedad a otro agente
+                if rol in {'agente', 'vendedor'}:
+                    propiedad.agente = _obtener_o_crear_perfil_agente(request.user)
+                _validar_modelo(propiedad)
+                propiedad.save()
+        except (ValidationError, IntegrityError, ValueError) as exc:
+            _mostrar_errores_guardado(request, exc)
+        else:
+            messages.success(request, f'Propiedad "{propiedad.titulo}" actualizada.')
+            return redirect('propiedades_lista')
     return render(request, 'propiedad_form.html', {
         'accion': 'Editar',
         'propiedad': propiedad,
@@ -324,9 +368,9 @@ def _propiedad_desde_post(request, p):
     p.descripcion = request.POST.get('descripcion', '').strip()
     p.precio      = request.POST.get('precio', 0) or 0
     p.area_m2     = request.POST.get('area_m2', 0) or 0
-    p.dormitorios = int(request.POST.get('dormitorios', 0) or 0)
-    p.banos       = int(request.POST.get('banos', 0) or 0)
-    p.parqueaderos = int(request.POST.get('parqueaderos', 0) or 0)
+    p.dormitorios = _parse_entero_no_negativo(request.POST.get('dormitorios'), 'dormitorios')
+    p.banos       = _parse_entero_no_negativo(request.POST.get('banos'), 'banos')
+    p.parqueaderos = _parse_entero_no_negativo(request.POST.get('parqueaderos'), 'parqueaderos')
     p.direccion   = request.POST.get('direccion', '').strip()
     p.ciudad      = request.POST.get('ciudad', '').strip()
     p.sector      = request.POST.get('sector', '').strip()
@@ -363,24 +407,34 @@ def agente_crear(request):
         comision  = request.POST.get('comision_pct', 3.0) or 3.0
         estado    = request.POST.get('estado', 'activo')
 
-        if User.objects.filter(username=username).exists():
-            messages.error(request, 'Ese nombre de usuario ya existe.')
-            return render(request, 'agente_form.html', {'accion': 'Crear', 'datos': request.POST})
+        try:
+            with transaction.atomic():
+                if len(password) < 6:
+                    raise ValidationError('La contraseña debe tener al menos 6 caracteres.')
+                user = User(
+                    username=username, email=email,
+                    first_name=nombre, last_name=apellido
+                )
+                user.set_password(password)
+                _validar_modelo(user)
+                user.save()
 
-        user = User.objects.create_user(
-            username=username, email=email,
-            password=password, first_name=nombre, last_name=apellido
-        )
-        grupo, _ = Group.objects.get_or_create(name='Agente')
-        user.groups.add(grupo)
+                agente = AgenteInmobiliario(
+                    user=user, cedula=cedula, telefono=telefono,
+                    comision_pct=comision, estado=estado
+                )
+                if request.FILES.get('foto'):
+                    agente.foto = request.FILES['foto']
+                _validar_modelo(agente)
+                agente.save()
 
-        agente = AgenteInmobiliario(
-            user=user, cedula=cedula, telefono=telefono,
-            comision_pct=comision, estado=estado
-        )
-        if request.FILES.get('foto'):
-            agente.foto = request.FILES['foto']
-        agente.save()
+                grupo, _ = Group.objects.get_or_create(name='Agente')
+                user.groups.add(grupo)
+        except (ValidationError, IntegrityError, ValueError) as exc:
+            _mostrar_errores_guardado(request, exc)
+            return render(request, 'agente_form.html', {
+                'accion': 'Crear', 'datos': request.POST, 'agente': None,
+            })
 
         messages.success(request, f'Agente {nombre} {apellido} creado correctamente.')
         return redirect('agentes_lista')
@@ -392,19 +446,26 @@ def agente_crear(request):
 def agente_editar(request, pk):
     agente = get_object_or_404(AgenteInmobiliario, pk=pk)
     if request.method == 'POST':
-        agente.user.first_name = request.POST.get('nombre', '').strip()
-        agente.user.last_name  = request.POST.get('apellido', '').strip()
-        agente.user.email      = request.POST.get('email', '').strip()
-        agente.user.save()
-        agente.cedula      = request.POST.get('cedula', '').strip()
-        agente.telefono    = request.POST.get('telefono', '').strip()
-        agente.comision_pct = request.POST.get('comision_pct', 3.0) or 3.0
-        agente.estado      = request.POST.get('estado', 'activo')
-        if request.FILES.get('foto'):
-            agente.foto = request.FILES['foto']
-        agente.save()
-        messages.success(request, 'Agente actualizado correctamente.')
-        return redirect('agentes_lista')
+        try:
+            with transaction.atomic():
+                agente.user.first_name = request.POST.get('nombre', '').strip()
+                agente.user.last_name  = request.POST.get('apellido', '').strip()
+                agente.user.email      = request.POST.get('email', '').strip()
+                _validar_modelo(agente.user)
+                agente.user.save()
+                agente.cedula      = request.POST.get('cedula', '').strip()
+                agente.telefono    = request.POST.get('telefono', '').strip()
+                agente.comision_pct = request.POST.get('comision_pct', 3.0) or 3.0
+                agente.estado      = request.POST.get('estado', 'activo')
+                if request.FILES.get('foto'):
+                    agente.foto = request.FILES['foto']
+                _validar_modelo(agente)
+                agente.save()
+        except (ValidationError, IntegrityError, ValueError) as exc:
+            _mostrar_errores_guardado(request, exc)
+        else:
+            messages.success(request, 'Agente actualizado correctamente.')
+            return redirect('agentes_lista')
 
     return render(request, 'agente_form.html', {'accion': 'Editar', 'agente': agente, 'datos': {}})
 
@@ -454,19 +515,26 @@ def comprador_editar(request, pk):
             messages.error(request, 'Tu perfil de agente no existe.')
             return redirect('dashboard')
     if request.method == 'POST':
-        comprador.user.first_name = request.POST.get('nombre', '').strip()
-        comprador.user.last_name  = request.POST.get('apellido', '').strip()
-        comprador.user.email      = request.POST.get('email', '').strip()
-        comprador.user.save()
-        comprador.cedula          = request.POST.get('cedula', '').strip()
-        comprador.telefono        = request.POST.get('telefono', '').strip()
-        comprador.presupuesto_max = request.POST.get('presupuesto_max') or None
-        comprador.estado          = request.POST.get('estado', 'prospecto')
-        agente_id                 = request.POST.get('agente')
-        comprador.agente = AgenteInmobiliario.objects.filter(pk=agente_id).first() if agente_id else None
-        comprador.save()
-        messages.success(request, 'Comprador actualizado correctamente.')
-        return redirect('compradores_lista')
+        try:
+            with transaction.atomic():
+                comprador.user.first_name = request.POST.get('nombre', '').strip()
+                comprador.user.last_name  = request.POST.get('apellido', '').strip()
+                comprador.user.email      = request.POST.get('email', '').strip()
+                _validar_modelo(comprador.user)
+                comprador.user.save()
+                comprador.cedula          = request.POST.get('cedula', '').strip()
+                comprador.telefono        = request.POST.get('telefono', '').strip()
+                comprador.presupuesto_max = request.POST.get('presupuesto_max') or None
+                comprador.estado          = request.POST.get('estado', 'prospecto')
+                agente_id                 = request.POST.get('agente')
+                comprador.agente = AgenteInmobiliario.objects.filter(pk=agente_id).first() if agente_id else None
+                _validar_modelo(comprador)
+                comprador.save()
+        except (ValidationError, IntegrityError, ValueError) as exc:
+            _mostrar_errores_guardado(request, exc)
+        else:
+            messages.success(request, 'Comprador actualizado correctamente.')
+            return redirect('compradores_lista')
 
     return render(request, 'comprador_form.html', {
         'accion': 'Editar',
@@ -571,7 +639,21 @@ def contrato_crear(request):
         )
         if request.FILES.get('documento'):
             contrato.documento = request.FILES['documento']
-        contrato.save()
+        try:
+            with transaction.atomic():
+                contrato._asegurar_numero_contrato()
+                _validar_modelo(contrato)
+                contrato.save()
+        except (ValidationError, IntegrityError, ValueError) as exc:
+            _mostrar_errores_guardado(request, exc)
+            return render(request, 'contrato_form.html', {
+                'accion': 'Crear',
+                'propiedades': propiedades,
+                'compradores': compradores,
+                'agentes': agentes,
+                'estado_choices': ContratoVenta.ESTADO_CHOICES,
+                'datos': request.POST,
+            })
         messages.success(request, f'Contrato #{contrato.numero_contrato} creado.')
         return redirect('contratos_lista')
 
@@ -662,7 +744,22 @@ def contrato_editar(request, pk):
         contrato.observaciones = request.POST.get('observaciones', '').strip()
         if request.FILES.get('documento'):
             contrato.documento = request.FILES['documento']
-        contrato.save()
+        try:
+            with transaction.atomic():
+                contrato._asegurar_numero_contrato()
+                _validar_modelo(contrato)
+                contrato.save()
+        except (ValidationError, IntegrityError, ValueError) as exc:
+            _mostrar_errores_guardado(request, exc)
+            return render(request, 'contrato_form.html', {
+                'accion': 'Editar',
+                'contrato': contrato,
+                'propiedades': propiedades,
+                'compradores': compradores,
+                'agentes': agentes,
+                'estado_choices': ContratoVenta.ESTADO_CHOICES,
+                'datos': request.POST,
+            })
         messages.success(request, f'Contrato #{contrato.numero_contrato} actualizado.')
         return redirect('contratos_lista')
 
@@ -821,7 +918,7 @@ def visita_crear(request):
                 'error': 'No puedes agendar una visita en una fecha u hora pasada.'
             }, status=400)
 
-        visita = Visita.objects.create(
+        visita = Visita(
             propiedad    = get_object_or_404(Propiedad,  pk=data['propiedad']),
             comprador    = get_object_or_404(Comprador,  pk=data['comprador']),
             agente       = AgenteInmobiliario.objects.filter(pk=data.get('agente')).first(),
@@ -831,9 +928,13 @@ def visita_crear(request):
             estado       = data.get('estado', 'pendiente'),
             notas        = data.get('notas', ''),
         )
+        _validar_modelo(visita)
+        visita.save()
         return JsonResponse({'ok': True, 'id': visita.pk}, status=201)
+    except ValidationError as e:
+        return JsonResponse({'ok': False, 'error': ' '.join(_errores_validacion(e))}, status=400)
     except Exception as e:
-        return JsonResponse({'ok': False, 'error': str(e)}, status=400)
+        return JsonResponse({'ok': False, 'error': 'No se pudo guardar la visita. Revisa los datos enviados.'}, status=400)
 
 
 # ─────────────────────────────────────────────
@@ -868,11 +969,14 @@ def visita_editar_api(request, pk):
         visita.orden_ruta   = int(data.get('orden_ruta', 1))
         visita.estado       = data.get('estado', visita.estado)
         visita.notas        = data.get('notas', visita.notas)
+        _validar_modelo(visita)
         visita.save()
 
         return JsonResponse({'ok': True})
-    except Exception as e:
-        return JsonResponse({'ok': False, 'error': str(e)}, status=400)
+    except ValidationError as e:
+        return JsonResponse({'ok': False, 'error': ' '.join(_errores_validacion(e))}, status=400)
+    except Exception:
+        return JsonResponse({'ok': False, 'error': 'No se pudo actualizar la visita. Revisa los datos enviados.'}, status=400)
 
 
 # ─────────────────────────────────────────────
@@ -900,10 +1004,13 @@ def visita_mover(request, pk):
     try:
         data   = json.loads(request.body)
         visita.fecha_hora = data['fecha_hora']
+        _validar_modelo(visita)
         visita.save(update_fields=['fecha_hora', 'actualizado_en'])
         return JsonResponse({'ok': True})
-    except Exception as e:
-        return JsonResponse({'ok': False, 'error': str(e)}, status=400)
+    except ValidationError as e:
+        return JsonResponse({'ok': False, 'error': ' '.join(_errores_validacion(e))}, status=400)
+    except Exception:
+        return JsonResponse({'ok': False, 'error': 'No se pudo mover la visita. Revisa la fecha enviada.'}, status=400)
 
 
 # ─────────────────────────────────────────────
@@ -1293,6 +1400,7 @@ def usuarios_lista(request):
 
 
 @rol_requerido('administrador')
+@transaction.atomic
 def usuario_crear(request):
     if request.method == 'POST':
         nombre   = request.POST.get('nombre', '').strip()
@@ -1357,6 +1465,7 @@ def usuario_crear(request):
         user.is_active    = activo
         user.is_staff     = is_superuser
         user.is_superuser = is_superuser
+        _validar_modelo(user)
         user.save()
 
         # Asignar grupo y crear perfil de rol si corresponde
@@ -1366,21 +1475,25 @@ def usuario_crear(request):
 
             # Crear perfil de agente si el rol es Agente
             if rol_sel == 'Agente':
-                AgenteInmobiliario.objects.create(
+                perfil = AgenteInmobiliario(
                     user=user,
                     cedula=cedula or f'0000{user.pk:06d}',
                     telefono=telefono or '',
                     comision_pct=3.00,
                     estado='activo',
                 )
+                _validar_modelo(perfil)
+                perfil.save()
             # Crear perfil de comprador si el rol es Comprador
             elif rol_sel == 'Comprador':
-                Comprador.objects.create(
+                perfil = Comprador(
                     user=user,
                     cedula=cedula or f'0000{user.pk:06d}',
                     telefono=telefono or '',
                     estado='prospecto',
                 )
+                _validar_modelo(perfil)
+                perfil.save()
 
         messages.success(request, f'Usuario {nombre} {apellido} creado correctamente.')
         return redirect('usuarios_lista')
@@ -1398,6 +1511,7 @@ def usuario_crear(request):
 
 
 @rol_requerido('administrador')
+@transaction.atomic
 def usuario_editar(request, pk):
     usuario = get_object_or_404(User, pk=pk)
     rol_actual = obtener_rol(usuario)
@@ -1477,6 +1591,7 @@ def usuario_editar(request, pk):
         usuario.is_superuser = is_superuser
         usuario.is_staff     = is_superuser
 
+        _validar_modelo(usuario)
         usuario.save()
 
         # Actualizar grupos

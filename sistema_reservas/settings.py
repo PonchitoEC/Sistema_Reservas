@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 import os
 import dj_database_url
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -122,6 +123,11 @@ elif os.environ.get('POSTGRES_DB'):
         }
     }
 else:
+    if not DEBUG:
+        raise ImproperlyConfigured(
+            'DATABASE_URL (o las variables POSTGRES_*) es obligatoria en producción. '
+            'SQLite no es persistente en servicios como Render.'
+        )
     # Desarrollo local con SQLite
     DATABASES = {
         'default': {

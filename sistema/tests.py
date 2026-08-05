@@ -8,7 +8,48 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import AgenteInmobiliario, Comprador, ContratoVenta, Propiedad
+from .models import AgenteInmobiliario, Comprador, ContratoVenta, Propiedad, Visita
+
+
+class PersistenciaSeguraTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_superuser('admin_guardado', 'guardado@example.com', 'password123')
+        self.client.force_login(self.admin)
+
+    def test_propiedad_invalida_no_produce_error_500_ni_se_guarda(self):
+        response = self.client.post(reverse('propiedad_crear'), {
+            'titulo': 'Propiedad inválida', 'tipo': 'casa',
+            'precio': 'texto', 'area_m2': '100',
+            'dormitorios': 'tres', 'banos': '2', 'parqueaderos': '1',
+            'direccion': 'Calle prueba', 'ciudad': 'Quito',
+            'estado': 'disponible',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Propiedad.objects.filter(titulo='Propiedad inválida').exists())
+
+    def test_agente_duplicado_no_deja_usuario_huerfano(self):
+        existente = User.objects.create_user('existente_guardado', password='password123')
+        AgenteInmobiliario.objects.create(
+            user=existente, cedula='0102030405', telefono='0999999999'
+        )
+        response = self.client.post(reverse('agente_crear'), {
+            'nombre': 'Usuario', 'apellido': 'Temporal',
+            'username': 'usuario_temporal', 'email': 'temporal@example.com',
+            'password': 'password123', 'cedula': '0102030405',
+            'telefono': '0988888888', 'comision_pct': '3', 'estado': 'activo',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(User.objects.filter(username='usuario_temporal').exists())
+
+    def test_visita_invalida_no_se_guarda(self):
+        response = self.client.post(
+            reverse('visita_crear'),
+            data=json.dumps({'propiedad': 999999, 'comprador': 999999, 'fecha_hora': 'fecha-mala'}),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Visita.objects.exists())
+        self.assertNotIn('Traceback', response.json()['error'])
 
 
 class FormulariosYContratosTests(TestCase):
