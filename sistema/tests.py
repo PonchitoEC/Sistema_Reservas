@@ -1,9 +1,11 @@
 from decimal import Decimal
 from datetime import timedelta
 import json
+from io import StringIO
 
 from django.contrib.auth.models import Group, User
 from django.core import mail
+from django.core.management import call_command
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -50,6 +52,14 @@ class PersistenciaSeguraTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertFalse(Visita.objects.exists())
         self.assertNotIn('Traceback', response.json()['error'])
+
+    def test_carga_demo_funciona_sin_variables_de_password(self):
+        call_command('crear_usuarios_produccion', stdout=StringIO())
+        self.assertEqual(AgenteInmobiliario.objects.filter(user__username__startswith='agente_').count(), 3)
+        self.assertEqual(Comprador.objects.filter(user__username__in=['Ponchito', 'comprador_ana', 'comprador_luis']).count(), 3)
+        self.assertEqual(Propiedad.objects.filter(descripcion__startswith='Propiedad demostrativa').count(), 6)
+        self.assertEqual(Visita.objects.filter(notas__startswith='[VISITA-DEMO-').count(), 6)
+        self.assertEqual(ContratoVenta.objects.filter(numero_contrato__startswith='DEMO-').count(), 3)
 
 
 class FormulariosYContratosTests(TestCase):

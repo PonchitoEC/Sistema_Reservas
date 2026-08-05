@@ -1,9 +1,10 @@
 """
 Comando de gestión: crear_usuarios_produccion
 =============================================
-Crea o actualiza los usuarios de prueba del sistema.
-Las contraseñas se leen exclusivamente desde variables de entorno;
-si una variable no está definida el usuario se omite con una advertencia.
+Crea o actualiza los usuarios y datos demostrativos del sistema.
+Las contraseñas solo se leen desde variables de entorno. La ausencia de una
+contraseña no impide crear los registros demostrativos: las cuentas nuevas
+quedan sin acceso hasta configurar la variable correspondiente.
 
 Variables de entorno requeridas:
     ADMIN_PASSWORD           → contraseña del administrador (cesar)
@@ -41,6 +42,9 @@ class Command(BaseCommand):
         group, _ = Group.objects.get_or_create(name=nombre)
         return group
 
+    def _password(self, variable: str) -> str:
+        return os.environ.get(variable, "")
+
     def _upsert_user(self, username, email, password, first_name="", last_name="",
                      is_staff=False, is_superuser=False) -> tuple[User, bool]:
         """
@@ -53,7 +57,10 @@ class Command(BaseCommand):
         user.last_name = last_name
         user.is_staff = is_staff
         user.is_superuser = is_superuser
-        user.set_password(password)
+        if password:
+            user.set_password(password)
+        elif created:
+            user.set_unusable_password()
         user.save()
         return user, created
 
@@ -204,18 +211,13 @@ class Command(BaseCommand):
             "\n==> Creando / actualizando usuarios de producción...\n"
         ))
 
-        errores = []
-
         # ── Grupos ──────────────────────────────────────────────────────
         grupo_agente    = self._get_or_create_group("Agente")
         grupo_comprador = self._get_or_create_group("Comprador")
 
         # ── 1. ADMINISTRADOR ────────────────────────────────────────────
-        pwd_admin = os.environ.get("ADMIN_PASSWORD")
-        if not pwd_admin:
-            errores.append("ADMIN_PASSWORD no definida → usuario 'cesar' omitido.")
-        else:
-            user, created = self._upsert_user(
+        pwd_admin = self._password("ADMIN_PASSWORD")
+        user, created = self._upsert_user(
                 username="cesar",
                 email="cesar.unapucha6741@utc.edu.ec",
                 password=pwd_admin,
@@ -223,58 +225,49 @@ class Command(BaseCommand):
                 last_name="Unapucha",
                 is_staff=True,
                 is_superuser=True,
-            )
-            # El superusuario no pertenece a ningún grupo de rol
-            user.groups.clear()
-            self._log("ADMINISTRADOR", "cesar", created)
+        )
+        # El superusuario no pertenece a ningún grupo de rol
+        user.groups.clear()
+        self._log("ADMINISTRADOR", "cesar", created)
 
         # ── 2. AGENTE Marco Paredes ──────────────────────────────────────
-        pwd_paredes = os.environ.get("AGENTE_PAREDES_PASSWORD")
-        if not pwd_paredes:
-            errores.append("AGENTE_PAREDES_PASSWORD no definida → usuario 'agente_paredes' omitido.")
-        else:
-            user, created = self._upsert_user(
+        pwd_paredes = self._password("AGENTE_PAREDES_PASSWORD")
+        user, created = self._upsert_user(
                 username="agente_paredes",
                 email="marco.paredes@conexion.ec",
                 password=pwd_paredes,
                 first_name="Marco",
                 last_name="Paredes",
-            )
-            user.groups.set([grupo_agente])
-            self._upsert_agente(user, cedula="0503112345", telefono="0987654321", comision=3.00)
-            self._log("AGENTE", "agente_paredes", created)
+        )
+        user.groups.set([grupo_agente])
+        self._upsert_agente(user, cedula="0503112345", telefono="0987654321", comision=3.00)
+        self._log("AGENTE", "agente_paredes", created)
 
         # ── 3. AGENTE Verónica Toapanta ──────────────────────────────────
-        pwd_toapanta = os.environ.get("AGENTE_TOAPANTA_PASSWORD")
-        if not pwd_toapanta:
-            errores.append("AGENTE_TOAPANTA_PASSWORD no definida → usuario 'agente_toapanta' omitido.")
-        else:
-            user, created = self._upsert_user(
+        pwd_toapanta = self._password("AGENTE_TOAPANTA_PASSWORD")
+        user, created = self._upsert_user(
                 username="agente_toapanta",
                 email="veronica.toapanta@conexion.ec",
                 password=pwd_toapanta,
                 first_name="Verónica",
                 last_name="Toapanta",
-            )
-            user.groups.set([grupo_agente])
-            self._upsert_agente(user, cedula="0502998765", telefono="0976543210", comision=4.00)
-            self._log("AGENTE", "agente_toapanta", created)
+        )
+        user.groups.set([grupo_agente])
+        self._upsert_agente(user, cedula="0502998765", telefono="0976543210", comision=4.00)
+        self._log("AGENTE", "agente_toapanta", created)
 
         # ── 4. COMPRADOR César Tenorio (Ponchito) ────────────────────────
-        pwd_ponchito = os.environ.get("PONCHITO_PASSWORD")
-        if not pwd_ponchito:
-            errores.append("PONCHITO_PASSWORD no definida → usuario 'Ponchito' omitido.")
-        else:
-            user, created = self._upsert_user(
+        pwd_ponchito = self._password("PONCHITO_PASSWORD")
+        user, created = self._upsert_user(
                 username="Ponchito",
                 email="cesar.unapucha2005@gmail.com",
                 password=pwd_ponchito,
                 first_name="César",
                 last_name="Tenorio",
-            )
-            user.groups.set([grupo_comprador])
-            self._upsert_comprador(user, cedula="0550626741", telefono="0998311869")
-            self._log("COMPRADOR", "Ponchito", created)
+        )
+        user.groups.set([grupo_comprador])
+        self._upsert_comprador(user, cedula="0550626741", telefono="0998311869")
+        self._log("COMPRADOR", "Ponchito", created)
 
         # ── Datos adicionales para demostrar listados y asignaciones ────
         usuarios_demo = [
@@ -302,13 +295,7 @@ class Command(BaseCommand):
         ]
 
         for datos in usuarios_demo:
-            password = os.environ.get(datos["password_env"])
-            if not password:
-                errores.append(
-                    f'{datos["password_env"]} no definida → usuario '
-                    f'\'{datos["username"]}\' omitido.'
-                )
-                continue
+            password = self._password(datos["password_env"])
 
             user, created = self._upsert_user(
                 username=datos["username"], email=datos["email"],
@@ -327,10 +314,4 @@ class Command(BaseCommand):
         self._cargar_datos_operativos()
 
         # ── Resumen ──────────────────────────────────────────────────────
-        self.stdout.write("")
-        if errores:
-            for msg in errores:
-                self.stdout.write(self.style.WARNING(f"  [ADVERTENCIA] {msg}"))
-            self.stdout.write("")
-
         self.stdout.write(self.style.SUCCESS("==> Usuarios de producción procesados.\n"))
