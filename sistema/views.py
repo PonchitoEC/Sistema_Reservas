@@ -683,11 +683,10 @@ def contrato_crear(request):
 @require_POST
 def contrato_enviar_correo(request, pk):
     contrato = get_object_or_404(ContratoVenta, pk=pk)
-    try:
-        contrato._enviar_notificacion_compra()
+    if contrato._enviar_notificacion_compra():
         messages.success(request, f'Correo enviado al comprador ({getattr(contrato.comprador.user, "email", "—")}).')
-    except Exception:
-        messages.error(request, 'Error al intentar enviar el correo. Revisa los registros.')
+    else:
+        messages.error(request, 'No se pudo enviar el correo. Verifica el email del comprador y la configuración SMTP de Render.')
     return redirect('contratos_lista')
 
 

@@ -259,7 +259,12 @@ class ContratoVenta(models.Model):
         comprador_user = getattr(self.comprador, 'user', None)
         if not comprador_user or not comprador_user.email:
             logger.warning('El comprador no tiene email registrado. usuario=%s contrato=%s', getattr(comprador_user, 'username', None), self.numero_contrato)
-            return
+            return False
+
+        usa_smtp = settings.EMAIL_BACKEND == 'django.core.mail.backends.smtp.EmailBackend'
+        if usa_smtp and (not settings.EMAIL_HOST_USER or not settings.EMAIL_HOST_PASSWORD):
+            logger.error('SMTP no configurado; no se puede enviar el contrato %s', self.numero_contrato)
+            return False
 
         tipo_propiedad = self.propiedad.get_tipo_display()
         asunto = f'Confirmación de compra: {self.propiedad.titulo}'
@@ -281,8 +286,10 @@ class ContratoVenta(models.Model):
                 [comprador_user.email],
                 fail_silently=False,
             )
+            return True
         except Exception:
             logger.exception('No se pudo enviar el correo de confirmación al comprador %s', comprador_user.email)
+            return False
 
     def save(self, *args, **kwargs):
         propiedad_anterior_id = None

@@ -120,6 +120,18 @@ class PersistenciaSeguraTests(TestCase):
         propiedad.refresh_from_db()
         self.assertEqual(propiedad.estado, 'disponible')
 
+    @override_settings(
+        EMAIL_BACKEND='django.core.mail.backends.smtp.EmailBackend',
+        EMAIL_HOST_USER='', EMAIL_HOST_PASSWORD='',
+    )
+    def test_boton_correo_falla_rapido_si_smtp_no_esta_configurado(self):
+        call_command('crear_usuarios_produccion', stdout=StringIO())
+        contrato = ContratoVenta.objects.get(numero_contrato='DEMO-VENTA-001')
+        response = self.client.post(reverse('contrato_enviar_correo', args=[contrato.pk]))
+        self.assertRedirects(response, reverse('contratos_lista'))
+        mensajes = [str(m) for m in response.wsgi_request._messages]
+        self.assertTrue(any('No se pudo enviar' in mensaje for mensaje in mensajes))
+
     def test_eliminar_objeto_protegido_no_genera_error_500(self):
         call_command('crear_usuarios_produccion', stdout=StringIO())
         contrato = ContratoVenta.objects.get(numero_contrato='DEMO-VENTA-001')

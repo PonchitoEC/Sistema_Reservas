@@ -94,10 +94,10 @@
                   <a href="{% url 'contrato_editar' c.pk %}" class="btn primary-btn btn-accion">
                     <i class="fa fa-pen"></i>
                 </a>
-                  <form method="POST" action="{% url 'contrato_enviar_correo' c.pk %}" style="display:inline;">
+                  <form method="POST" action="{% url 'contrato_enviar_correo' c.pk %}" class="form-enviar-correo" style="display:inline;">
                     {% csrf_token %}
-                    <button type="submit" class="btn btn-accion" title="Enviar correo">
-                      Enviar correo
+                    <button type="submit" class="btn btn-accion btn-enviar-correo" title="Enviar correo">
+                      <i class="fa fa-envelope me-1"></i>Enviar correo
                     </button>
                   </form>
                 {% if c.documento %}
@@ -156,6 +156,11 @@ function iniciarTour() {
 
 $(function() {
   $('#tablaContratos').DataTable({ order: [[0,'desc']], columnDefs: [{ orderable:false, targets:[-1] }] });
+
+  $('.form-enviar-correo').on('submit', function() {
+    const btn = $(this).find('.btn-enviar-correo');
+    btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span>Enviando...');
+  });
 });
 </script>
 {% endblock %}

@@ -251,7 +251,7 @@
       <h5><i class="fa fa-calendar me-2" style="color:var(--primary);"></i>Próximas Visitas</h5>
     </div>
     <div class="table-responsive">
-      <table class="table mb-0">
+      <table id="tablaProximasVisitas" class="table mb-0">
         <thead>
           <tr>
             <th>Propiedad</th>
@@ -284,6 +284,11 @@
 {% if rol == 'administrador' or rol == 'agente' %}
 <script>
 $(function() {
+  if ($('#tablaProximasVisitas').length) {
+    $('#tablaProximasVisitas').DataTable({
+      order: [[3, 'asc']], pageLength: 5, lengthChange: false,
+    });
+  }
   // ── Chart.js: donut visitas por estado ───────────────
   fetch('{% url "reportes_api" %}?tipo=resumen')
     .then(r => r.json())

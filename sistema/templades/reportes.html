@@ -138,7 +138,7 @@
             <h5><i class="lni lni-bar-chart me-2" style="color:var(--primary);"></i>Detalle de efectividad</h5>
           </div>
           <div class="table-responsive">
-            <table class="table mb-0">
+            <table id="tablaReporteEfectividad" class="table mb-0">
               <thead><tr>
                 <th>#</th><th>Agente</th><th>Visitas</th>
                 <th>Realizadas</th><th>Contratos</th><th>Tasa cierre</th>
@@ -167,7 +167,7 @@
             <h5><i class="lni lni-wallet me-2" style="color:var(--primary);"></i>Detalle de comisiones</h5>
           </div>
           <div class="table-responsive">
-            <table class="table mb-0">
+            <table id="tablaReporteComisiones" class="table mb-0">
               <thead><tr>
                 <th>#</th><th>Agente</th><th>% Comisión</th>
                 <th>Contratos</th><th>Total USD</th>
@@ -223,6 +223,14 @@
 const API = '{% url "reportes_api" %}';
 const COLORES = ['#2563eb','#16a34a','#ca8a04','#dc2626','#7c3aed','#0891b2','#d97706','#be185d'];
 let charts = {};
+let tablas = {};
+
+function actualizarDataTable(id, orden) {
+  if (tablas[id]) tablas[id].destroy();
+  tablas[id] = $('#' + id).DataTable({
+    order: orden, pageLength: 5, lengthChange: false,
+  });
+}
 
 // ── Helpers ──────────────────────────────────────────
 function fmt(n) { return new Intl.NumberFormat('es-EC',{minimumFractionDigits:2,maximumFractionDigits:2}).format(n); }
@@ -281,6 +289,7 @@ async function cargarEfectividad() {
         </div>
       </td>
     </tr>`).join('');
+  actualizarDataTable('tablaReporteEfectividad', [[5, 'desc']]);
 }
 
 // ── Tab: Comisiones ──────────────────────────────────
@@ -318,6 +327,7 @@ async function cargarComisiones() {
       <td>${r.contratos}</td>
       <td style="font-weight:700;color:#16a34a;">$${fmt(r.comision)}</td>
     </tr>`).join('');
+  actualizarDataTable('tablaReporteComisiones', [[4, 'desc']]);
 }
 
 // ── Tab: Visitas para cerrar ─────────────────────────
@@ -377,6 +387,7 @@ function cambiarTab(nombre, btn) {
   btn.classList.add('active');
   document.getElementById('tab-' + nombre).classList.add('active');
   if (!cargado[nombre]) { cargadores[nombre](); cargado[nombre] = true; }
+  setTimeout(() => $.fn.dataTable.tables({visible:true, api:true}).columns.adjust().responsive.recalc(), 0);
 }
 
 // ── Inicializar ──────────────────────────────────────
