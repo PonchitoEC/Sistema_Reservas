@@ -126,6 +126,17 @@ class Command(BaseCommand):
             ))
             return
 
+        asignaciones = {
+            "Ponchito": agentes["agente_paredes"],
+            "comprador_ana": agentes["agente_salazar"],
+            "comprador_luis": agentes["agente_toapanta"],
+        }
+        for username, comprador in compradores.items():
+            comprador.agente = asignaciones[username]
+            comprador.presupuesto_max = Decimal("220000.00")
+            comprador.estado = "activo"
+            comprador.save(update_fields=["agente", "presupuesto_max", "estado"])
+
         propiedades_data = [
             ("Casa moderna en La Armenia", "casa", "145000.00", "180.00", "Quito", "La Armenia", agentes["agente_paredes"]),
             ("Departamento en La Carolina", "departamento", "118000.00", "96.00", "Quito", "La Carolina", agentes["agente_paredes"]),
@@ -151,21 +162,22 @@ class Command(BaseCommand):
             )
             propiedades[titulo] = propiedad
 
-        ahora = timezone.now().replace(second=0, microsecond=0)
+        hoy = timezone.localtime().replace(hour=9, minute=0, second=0, microsecond=0)
         visitas_data = [
-            ("VISITA-DEMO-01", "Casa moderna en La Armenia", "Ponchito", "agente_paredes", 2, "confirmada", 1),
-            ("VISITA-DEMO-02", "Departamento en La Carolina", "comprador_ana", "agente_paredes", 3, "pendiente", 2),
-            ("VISITA-DEMO-03", "Terreno residencial en Tumbaco", "comprador_luis", "agente_toapanta", 4, "confirmada", 1),
-            ("VISITA-DEMO-04", "Casa familiar en Cumbayá", "Ponchito", "agente_toapanta", -12, "realizada", 1),
-            ("VISITA-DEMO-05", "Oficina equipada en Iñaquito", "comprador_ana", "agente_salazar", -8, "realizada", 1),
-            ("VISITA-DEMO-06", "Local comercial en El Bosque", "comprador_luis", "agente_salazar", 5, "pendiente", 2),
+            ("VISITA-DEMO-01", "Casa moderna en La Armenia", "Ponchito", "agente_paredes", 0, 0, "confirmada", 1),
+            ("VISITA-DEMO-02", "Departamento en La Carolina", "comprador_ana", "agente_paredes", 0, 2, "pendiente", 2),
+            ("VISITA-DEMO-03", "Terreno residencial en Tumbaco", "comprador_luis", "agente_toapanta", 0, 5, "confirmada", 3),
+            ("VISITA-DEMO-04", "Casa familiar en Cumbayá", "Ponchito", "agente_toapanta", -12, 1, "realizada", 1),
+            ("VISITA-DEMO-05", "Oficina equipada en Iñaquito", "comprador_ana", "agente_salazar", -8, 3, "realizada", 1),
+            ("VISITA-DEMO-06", "Local comercial en El Bosque", "comprador_luis", "agente_salazar", 5, 1, "pendiente", 1),
         ]
-        for marca, titulo, comprador_user, agente_user, dias, estado, orden in visitas_data:
+        for marca, titulo, comprador_user, agente_user, dias, horas, estado, orden in visitas_data:
             Visita.objects.update_or_create(
                 notas=f"[{marca}] Visita cargada para demostración.",
                 defaults={
                     "propiedad": propiedades[titulo], "comprador": compradores[comprador_user],
-                    "agente": agentes[agente_user], "fecha_hora": ahora + timedelta(days=dias),
+                    "agente": agentes[agente_user],
+                    "fecha_hora": hoy + timedelta(days=dias, hours=horas),
                     "duracion_min": 45, "orden_ruta": orden, "estado": estado,
                     "confirmado_por_cliente": estado in {"confirmada", "realizada"},
                 },
@@ -175,6 +187,7 @@ class Command(BaseCommand):
             ("DEMO-VENTA-001", "Casa familiar en Cumbayá", "Ponchito", "agente_toapanta", "198000.00", "firmado", -5),
             ("DEMO-VENTA-002", "Oficina equipada en Iñaquito", "comprador_ana", "agente_salazar", "93000.00", "en_revision", None),
             ("DEMO-VENTA-003", "Terreno residencial en Tumbaco", "comprador_luis", "agente_toapanta", "85000.00", "borrador", None),
+            ("DEMO-VENTA-004", "Departamento en La Carolina", "Ponchito", "agente_paredes", "115000.00", "en_revision", None),
         ]
         for numero, titulo, comprador_user, agente_user, precio, estado, dias_firma in contratos_data:
             agente = agentes[agente_user]
@@ -197,8 +210,9 @@ class Command(BaseCommand):
         # Reflejar los estados finales de los contratos en las propiedades.
         Propiedad.objects.filter(titulo="Casa familiar en Cumbayá").update(estado="vendida")
         Propiedad.objects.filter(titulo="Oficina equipada en Iñaquito").update(estado="reservada")
+        Propiedad.objects.filter(titulo="Departamento en La Carolina").update(estado="reservada")
         self.stdout.write(self.style.SUCCESS(
-            "  [DATOS DEMO] 6 propiedades, 6 visitas y 3 contratos procesados."
+            "  [DATOS DEMO] 6 propiedades, 6 visitas y 4 contratos procesados."
         ))
 
     # ------------------------------------------------------------------

@@ -59,7 +59,8 @@ class PersistenciaSeguraTests(TestCase):
         self.assertEqual(Comprador.objects.filter(user__username__in=['Ponchito', 'comprador_ana', 'comprador_luis']).count(), 3)
         self.assertEqual(Propiedad.objects.filter(descripcion__startswith='Propiedad demostrativa').count(), 6)
         self.assertEqual(Visita.objects.filter(notas__startswith='[VISITA-DEMO-').count(), 6)
-        self.assertEqual(ContratoVenta.objects.filter(numero_contrato__startswith='DEMO-').count(), 3)
+        self.assertEqual(ContratoVenta.objects.filter(numero_contrato__startswith='DEMO-').count(), 4)
+        self.assertEqual(Visita.objects.filter(fecha_hora__date=timezone.localdate()).count(), 3)
 
 
 class FormulariosYContratosTests(TestCase):
