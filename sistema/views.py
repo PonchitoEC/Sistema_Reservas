@@ -10,6 +10,7 @@ from django.http import JsonResponse
 from django.core.exceptions import ValidationError
 from django.views.decorators.http import require_POST, require_http_methods
 from django.db import IntegrityError, transaction
+from django.db.models.deletion import ProtectedError
 from django.db.models import Count, Sum, Avg, Q
 from django.db.models.functions import TruncMonth
 import json
@@ -352,7 +353,11 @@ def propiedad_eliminar(request, pk):
     propiedad = get_object_or_404(Propiedad, pk=pk)
     if request.method == 'POST':
         titulo = propiedad.titulo
-        propiedad.delete()
+        try:
+            propiedad.delete()
+        except ProtectedError:
+            messages.error(request, 'No se puede eliminar la propiedad porque tiene contratos asociados.')
+            return redirect('propiedades_lista')
         messages.success(request, f'Propiedad "{titulo}" eliminada.')
         return redirect('propiedades_lista')
     return render(request, 'confirmar_eliminar.html', {
@@ -475,7 +480,11 @@ def agente_eliminar(request, pk):
     agente = get_object_or_404(AgenteInmobiliario, pk=pk)
     if request.method == 'POST':
         nombre = agente.nombre_completo()
-        agente.user.delete()  # Elimina también el User por CASCADE
+        try:
+            agente.user.delete()  # Elimina también el User por CASCADE
+        except ProtectedError:
+            messages.error(request, 'No se puede eliminar el agente porque tiene contratos asociados.')
+            return redirect('agentes_lista')
         messages.success(request, f'Agente {nombre} eliminado.')
         return redirect('agentes_lista')
     return render(request, 'confirmar_eliminar.html', {
@@ -549,7 +558,11 @@ def comprador_eliminar(request, pk):
     comprador = get_object_or_404(Comprador, pk=pk)
     if request.method == 'POST':
         nombre = comprador.user.get_full_name()
-        comprador.user.delete()
+        try:
+            comprador.user.delete()
+        except ProtectedError:
+            messages.error(request, 'No se puede eliminar el comprador porque tiene contratos asociados.')
+            return redirect('compradores_lista')
         messages.success(request, f'Comprador {nombre} eliminado.')
         return redirect('compradores_lista')
     return render(request, 'confirmar_eliminar.html', {
@@ -784,7 +797,7 @@ def contrato_eliminar(request, pk):
     return render(request, 'confirmar_eliminar.html', {
         'objeto': contrato,
         'titulo': 'Eliminar Contrato',
-        'cancelar_url': 'contratos_lista',
+        'cancelar_url': reverse('contratos_lista'),
     })
 
 # ═══════════════════════════════════════════════════════════

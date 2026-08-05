@@ -238,25 +238,22 @@ class ContratoVenta(models.Model):
         if qs.exists():
             self.numero_contrato = self._generar_numero_contrato()
 
-    def _sincronizar_estado_propiedad(self):
-        if not getattr(self, 'propiedad_id', None):
+    @classmethod
+    def _recalcular_estado_propiedad(cls, propiedad):
+        if not propiedad:
             return
-
-        propiedad = self.propiedad
-        contratos_relacionados = ContratoVenta.objects.filter(propiedad=propiedad).exclude(pk=self.pk)
-
-        if self.estado == 'firmado':
+        contratos = cls.objects.filter(propiedad=propiedad)
+        if contratos.filter(estado='firmado').exists():
             propiedad.estado = 'vendida'
-        elif self.estado == 'en_revision':
-            propiedad.estado = 'reservada'
-        elif contratos_relacionados.filter(estado='firmado').exists():
-            propiedad.estado = 'vendida'
-        elif contratos_relacionados.filter(estado='en_revision').exists():
+        elif contratos.filter(estado='en_revision').exists():
             propiedad.estado = 'reservada'
         else:
             propiedad.estado = 'disponible'
-
         propiedad.save(update_fields=['estado'])
+
+    def _sincronizar_estado_propiedad(self):
+        if getattr(self, 'propiedad_id', None):
+            self._recalcular_estado_propiedad(self.propiedad)
 
     def _enviar_notificacion_compra(self):
         comprador_user = getattr(self.comprador, 'user', None)
@@ -288,6 +285,11 @@ class ContratoVenta(models.Model):
             logger.exception('No se pudo enviar el correo de confirmación al comprador %s', comprador_user.email)
 
     def save(self, *args, **kwargs):
+        propiedad_anterior_id = None
+        if self.pk:
+            propiedad_anterior_id = ContratoVenta.objects.filter(pk=self.pk).values_list(
+                'propiedad_id', flat=True
+            ).first()
         try:
             precio = Decimal(str(self.precio_acordado or 0))
         except (InvalidOperation, TypeError, ValueError):
@@ -351,7 +353,16 @@ class ContratoVenta(models.Model):
         # Cambiar el estado solo después de que el contrato exista realmente.
         # La vista envuelve ambas escrituras en una misma transacción.
         self._sincronizar_estado_propiedad()
+        if propiedad_anterior_id and propiedad_anterior_id != self.propiedad_id:
+            propiedad_anterior = Propiedad.objects.filter(pk=propiedad_anterior_id).first()
+            self._recalcular_estado_propiedad(propiedad_anterior)
 
         if self.estado == 'firmado' and not was_firmado:
             # El envío ya captura sus propios errores y no debe impedir el save.
             self._enviar_notificacion_compra()
+
+    def delete(self, *args, **kwargs):
+        propiedad = self.propiedad
+        resultado = super().delete(*args, **kwargs)
+        self._recalcular_estado_propiedad(propiedad)
+        return resultado

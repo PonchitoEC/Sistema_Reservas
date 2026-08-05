@@ -62,6 +62,71 @@ class PersistenciaSeguraTests(TestCase):
         self.assertEqual(ContratoVenta.objects.filter(numero_contrato__startswith='DEMO-').count(), 4)
         self.assertEqual(Visita.objects.filter(fecha_hora__date=timezone.localdate()).count(), 3)
 
+    def test_botones_editar_guardan_datos_demo(self):
+        call_command('crear_usuarios_produccion', stdout=StringIO())
+        propiedad = Propiedad.objects.get(titulo='Casa moderna en La Armenia')
+        response = self.client.post(reverse('propiedad_editar', args=[propiedad.pk]), {
+            'titulo': propiedad.titulo, 'tipo': propiedad.tipo,
+            'descripcion': 'Descripción actualizada desde edición',
+            'precio': '146000.00', 'area_m2': '181.00',
+            'dormitorios': '3', 'banos': '2', 'parqueaderos': '2',
+            'direccion': propiedad.direccion, 'ciudad': propiedad.ciudad,
+            'sector': propiedad.sector, 'estado': propiedad.estado,
+            'agente': propiedad.agente_id,
+        })
+        self.assertRedirects(response, reverse('propiedades_lista'))
+        propiedad.refresh_from_db()
+        self.assertEqual(propiedad.precio, Decimal('146000.00'))
+
+        contrato = ContratoVenta.objects.get(numero_contrato='DEMO-VENTA-004')
+        response = self.client.post(reverse('contrato_editar', args=[contrato.pk]), {
+            'propiedad': contrato.propiedad_id, 'comprador': contrato.comprador_id,
+            'agente': contrato.agente_id, 'precio_acordado': '114500.00',
+            'numero_contrato': contrato.numero_contrato, 'estado': 'en_revision',
+            'observaciones': 'Edición verificada',
+        })
+        self.assertRedirects(response, reverse('contratos_lista'))
+        contrato.refresh_from_db()
+        self.assertEqual(contrato.precio_acordado, Decimal('114500.00'))
+
+        visita = Visita.objects.get(notas__startswith='[VISITA-DEMO-01]')
+        response = self.client.put(
+            reverse('visita_editar_api', args=[visita.pk]),
+            data=json.dumps({
+                'propiedad': visita.propiedad_id, 'comprador': visita.comprador_id,
+                'agente': visita.agente_id, 'fecha_hora': visita.fecha_hora.isoformat(),
+                'duracion_min': 60, 'orden_ruta': 2, 'estado': 'confirmada',
+                'notas': visita.notas,
+            }), content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 200)
+        visita.refresh_from_db()
+        self.assertEqual(visita.duracion_min, 60)
+
+    def test_contrato_recalcula_propiedad_al_editar_y_eliminar(self):
+        call_command('crear_usuarios_produccion', stdout=StringIO())
+        contrato = ContratoVenta.objects.get(numero_contrato='DEMO-VENTA-001')
+        propiedad = contrato.propiedad
+        contrato.estado = 'borrador'
+        contrato.save()
+        propiedad.refresh_from_db()
+        self.assertEqual(propiedad.estado, 'disponible')
+
+        contrato.estado = 'en_revision'
+        contrato.save()
+        propiedad.refresh_from_db()
+        self.assertEqual(propiedad.estado, 'reservada')
+        contrato.delete()
+        propiedad.refresh_from_db()
+        self.assertEqual(propiedad.estado, 'disponible')
+
+    def test_eliminar_objeto_protegido_no_genera_error_500(self):
+        call_command('crear_usuarios_produccion', stdout=StringIO())
+        contrato = ContratoVenta.objects.get(numero_contrato='DEMO-VENTA-001')
+        response = self.client.post(reverse('propiedad_eliminar', args=[contrato.propiedad_id]))
+        self.assertRedirects(response, reverse('propiedades_lista'))
+        self.assertTrue(Propiedad.objects.filter(pk=contrato.propiedad_id).exists())
+
 
 class FormulariosYContratosTests(TestCase):
     def setUp(self):
