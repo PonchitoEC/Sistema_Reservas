@@ -16,20 +16,19 @@
   .filter-bar .form-control, .filter-bar .form-select {
     border-radius:8px; border:1.5px solid #e0e0e0; font-size:14px; padding:9px 14px;
   }
-  .prop-card { border:none; border-radius:14px; box-shadow:0 3px 16px rgba(0,0,0,.08); overflow:hidden; transition:transform .2s, box-shadow .2s; }
-  .prop-card:hover { transform:translateY(-4px); box-shadow:0 8px 28px rgba(0,0,0,.13); }
-  .prop-card .prop-img { height:190px; object-fit:cover; width:100%; background:#e8edf5; }
-  .prop-card .prop-img-placeholder {
-    height:190px; display:flex; align-items:center; justify-content:center;
-    background:linear-gradient(135deg,#e8edf5,#d0d8ee); color:#8fa0c0; font-size:48px;
-  }
+  .table-card { background:#fff; border-radius:14px; box-shadow:0 3px 18px rgba(0,0,0,.08); overflow:hidden; }
+  .table-card table { margin:0; width:100%!important; }
+  .table-card thead th { background:#f8fafc; color:#475569; font-size:12px; text-transform:uppercase; letter-spacing:.035em; border-bottom:2px solid #e2e8f0; white-space:nowrap; }
+  .table-card tbody td { vertical-align:middle; font-size:13px; color:#334155; }
+  .prop-thumb { width:68px; height:52px; object-fit:cover; border-radius:8px; background:#e8edf5; }
+  .prop-thumb-placeholder { width:68px; height:52px; border-radius:8px; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg,#e8edf5,#d0d8ee); color:#8fa0c0; font-size:20px; }
   .badge-tipo  { font-size:11px; padding:4px 10px; border-radius:20px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
   .badge-disponible  { background:#dcfce7; color:#16a34a; }
   .badge-reservada   { background:#fef9c3; color:#ca8a04; }
   .badge-vendida     { background:#fee2e2; color:#dc2626; }
   .badge-no_disponible { background:#f3f4f6; color:#6b7280; }
   .prop-price { font-size:20px; font-weight:700; color:var(--primary); }
-  .prop-feat  { font-size:13px; color:#6b7280; display:flex; align-items:center; gap:4px; }
+  .prop-feat  { font-size:12px; color:#6b7280; white-space:nowrap; }
   .btn-accion { font-size:12px; padding:5px 12px; border-radius:6px; text-transform:none; letter-spacing:normal; }
   .empty-state { text-align:center; padding:60px 20px; color:#9ca3af; }
   .empty-state i { font-size:56px; margin-bottom:16px; display:block; }
@@ -111,69 +110,44 @@
     <strong>{{ propiedades|length }}</strong> propiedad{{ propiedades|length|pluralize:"es" }} encontrada{{ propiedades|length|pluralize:"s" }}
   </p>
 
-  <!-- Grid de propiedades -->
+  <!-- Tabla única de propiedades -->
   {% if propiedades %}
-  <div class="row g-4">
-    {% for p in propiedades %}
-    <div class="col-lg-4 col-md-6">
-      <div class="card prop-card h-100">
-        {% if p.imagen_principal %}
-          <img src="{{ p.imagen_principal.url }}" class="prop-img" alt="{{ p.titulo }}">
-        {% else %}
-          <div class="prop-img-placeholder">
-            <i class="fa fa-home"></i>
-          </div>
-        {% endif %}
-        <div class="card-body p-4">
-          <div class="d-flex justify-content-between align-items-start mb-2">
-            <span class="badge-tipo" style="background:rgba(37,99,235,.1);color:var(--primary);">
-              {{ p.get_tipo_display }}
-            </span>
-            <span class="badge-tipo badge-{{ p.estado }}">{{ p.get_estado_display }}</span>
-          </div>
-          <h5 class="fw-bold mb-1" style="font-size:16px;">{{ p.titulo }}</h5>
-            <p class="text-muted mb-2" style="font-size:13px;">
-            <i class="fa fa-map-marker-alt me-1"></i>{{ p.ciudad }}{% if p.sector %}, {{ p.sector }}{% endif %}
-          </p>
-          <div class="prop-price mb-3">${{ p.precio|floatformat:0 }}</div>
-          <div class="d-flex gap-3 mb-3">
-            {% if p.dormitorios %}
-            <span class="prop-feat"><i class="fa fa-bed"></i> {{ p.dormitorios }}</span>
-            {% endif %}
-            {% if p.banos %}
-            <span class="prop-feat"><i class="fa fa-bath"></i> {{ p.banos }}</span>
-            {% endif %}
-            <span class="prop-feat"><i class="fa fa-ruler-combined"></i> {{ p.area_m2 }} m²</span>
-            {% if p.parqueaderos %}
-            <span class="prop-feat"><i class="fa fa-car"></i> {{ p.parqueaderos }}</span>
-            {% endif %}
-          </div>
-          {% if p.agente %}
-          <p class="text-muted mb-3" style="font-size:12px;">
-            <i class="fa fa-user me-1"></i>{{ p.agente.nombre_completo }}
-          </p>
-          {% endif %}
-            <div class="d-flex gap-2">
-            {% if rol == 'administrador' or rol == 'agente' or rol == 'vendedor' %}
-            <a href="{% url 'propiedad_editar' p.pk %}" class="btn primary-btn btn-accion">
-              <i class="fa fa-pen me-1"></i>Editar
-            </a>
-            {% endif %}
-            {% if user.is_superuser %}
-            <form method="POST" action="{% url 'propiedad_eliminar' p.pk %}" style="display:inline;">
-              {% csrf_token %}
-              <button type="button" class="btn btn-accion"
-                style="border:1.5px solid #dc2626;color:#dc2626;border-radius:6px;"
-                data-confirm-delete="{{ p.titulo }}">
-                <i class="fa fa-trash"></i>
-              </button>
-            </form>
-            {% endif %}
-          </div>
-        </div>
-      </div>
+  <div class="table-card">
+    <div class="table-responsive p-3">
+      <table id="tablaPropiedades" class="table table-hover align-middle mb-0">
+        <thead><tr>
+          <th>Imagen</th><th>Propiedad</th><th>Ubicación</th><th>Características</th>
+          <th>Precio</th><th>Agente</th><th>Estado</th><th>Acciones</th>
+        </tr></thead>
+        <tbody>
+        {% for p in propiedades %}
+          <tr>
+            <td data-order="{{ p.pk }}">
+              {% if p.imagen_principal %}<img src="{{ p.imagen_principal.url }}" class="prop-thumb" alt="{{ p.titulo }}">
+              {% else %}<div class="prop-thumb-placeholder"><i class="fa fa-home"></i></div>{% endif %}
+            </td>
+            <td><div class="fw-bold">{{ p.titulo }}</div><span class="badge-tipo" style="background:rgba(37,99,235,.1);color:var(--primary);">{{ p.get_tipo_display }}</span></td>
+            <td><i class="fa fa-map-marker-alt me-1 text-muted"></i>{{ p.ciudad }}{% if p.sector %}<br><small class="text-muted">{{ p.sector }}</small>{% endif %}</td>
+            <td>
+              <div class="d-flex flex-wrap gap-2">
+                {% if p.dormitorios %}<span class="prop-feat"><i class="fa fa-bed"></i> {{ p.dormitorios }}</span>{% endif %}
+                {% if p.banos %}<span class="prop-feat"><i class="fa fa-bath"></i> {{ p.banos }}</span>{% endif %}
+                <span class="prop-feat"><i class="fa fa-ruler-combined"></i> {{ p.area_m2 }} m²</span>
+                {% if p.parqueaderos %}<span class="prop-feat"><i class="fa fa-car"></i> {{ p.parqueaderos }}</span>{% endif %}
+              </div>
+            </td>
+            <td data-order="{{ p.precio }}"><span class="prop-price">${{ p.precio|floatformat:0 }}</span></td>
+            <td>{% if p.agente %}<i class="fa fa-user me-1 text-muted"></i>{{ p.agente.nombre_completo }}{% else %}<span class="text-muted">Sin asignar</span>{% endif %}</td>
+            <td><span class="badge-tipo badge-{{ p.estado }}">{{ p.get_estado_display }}</span></td>
+            <td><div class="d-flex gap-1">
+              {% if rol == 'administrador' or rol == 'agente' or rol == 'vendedor' %}<a href="{% url 'propiedad_editar' p.pk %}" class="btn primary-btn btn-accion" title="Editar"><i class="fa fa-pen"></i></a>{% endif %}
+              {% if user.is_superuser %}<form method="POST" action="{% url 'propiedad_eliminar' p.pk %}" style="display:inline;">{% csrf_token %}<button type="button" class="btn btn-accion" style="border:1.5px solid #dc2626;color:#dc2626;border-radius:6px;" data-confirm-delete="{{ p.titulo }}" title="Eliminar"><i class="fa fa-trash"></i></button></form>{% endif %}
+            </div></td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
     </div>
-    {% endfor %}
   </div>
   {% else %}
   <div class="empty-state">
@@ -195,13 +169,20 @@ function iniciarTour() {
     stagePadding: 8, stageRadius: 10,
     nextBtnText: 'Siguiente →', prevBtnText: '← Anterior', doneBtnText: '¡Entendido! ✓',
     steps: [
-      { popover: { title: '🏠 Catálogo de Propiedades', description: 'Aquí puedes ver todas las propiedades registradas. Están organizadas en tarjetas con su información principal.', side: 'over', align: 'center' } },
+      { popover: { title: '🏠 Catálogo de Propiedades', description: 'Aquí puedes ver todas las propiedades registradas en una tabla ordenable y con búsqueda.', side: 'over', align: 'center' } },
       { element: '.filter-bar', popover: { title: '🔍 Filtros de búsqueda', description: 'Filtra por texto (título, ciudad, sector), tipo de inmueble y estado. Haz clic en "Filtrar" para aplicar los filtros o en el botón circular para limpiarlos.', side: 'bottom', align: 'start' } },
       { element: '#btn-nueva-propiedad', popover: { title: '➕ Nueva Propiedad', description: 'Crea una nueva propiedad. Se abrirá el formulario con un tour instructivo paso a paso que te guiará por cada campo.', side: 'bottom', align: 'end' } },
-      { element: '.row.g-4', popover: { title: '🃏 Tarjetas de propiedades', description: 'Cada tarjeta muestra el tipo, estado, precio, características y el agente captador. El color del badge indica el estado actual del inmueble.', side: 'top', align: 'start' } },
+      { element: '#tablaPropiedades', popover: { title: '📋 Tabla de propiedades', description: 'Ordena columnas, busca registros y navega entre páginas. Cada fila incluye estado, precio, agente y acciones.', side: 'top', align: 'start' } },
       { popover: { title: '✅ ¡Listo!', description: 'Ya conoces el catálogo. Para agregar una propiedad haz clic en "Nueva Propiedad" y sigue el tour de captación.', side: 'over', align: 'center' } },
     ],
   }).drive();
 }
+
+$(function() {
+  $('#tablaPropiedades').DataTable({
+    order: [[1, 'asc']],
+    columnDefs: [{ orderable: false, searchable: false, targets: [0, 7] }],
+  });
+});
 </script>
 {% endblock %}

@@ -151,6 +151,14 @@ class PersistenciaSeguraTests(TestCase):
             with self.subTest(ruta=nombre, pk=pk):
                 self.assertEqual(self.client.get(reverse(nombre, args=[pk])).status_code, 200)
 
+    def test_propiedades_se_muestran_en_una_datatable_unica(self):
+        call_command('crear_usuarios_produccion', stdout=StringIO())
+        response = self.client.get(reverse('propiedades_lista'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="tablaPropiedades"', html=False)
+        self.assertContains(response, "$('#tablaPropiedades').DataTable")
+        self.assertEqual(response.content.count(b'id="tablaPropiedades"'), 1)
+
     def test_editar_rol_crea_perfil_y_toggle_activo_funciona(self):
         usuario = User.objects.create_user(
             'usuario_sin_perfil', 'perfil@example.com', 'password123',
