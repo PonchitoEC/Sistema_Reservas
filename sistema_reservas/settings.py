@@ -213,7 +213,10 @@ EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
 EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
 EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True') == 'True'
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
-EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+# Google muestra las contraseñas de aplicación separadas en bloques. Render
+# puede conservar espacios normales o no separables al pegarlas; SMTP necesita
+# recibir los 16 caracteres continuos.
+EMAIL_HOST_PASSWORD = ''.join(os.environ.get('EMAIL_HOST_PASSWORD', '').split())
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 # Evita que una falla de red/SMTP deje colgada una petición web.
 EMAIL_TIMEOUT = int(os.environ.get('EMAIL_TIMEOUT', 8))
