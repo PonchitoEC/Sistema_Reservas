@@ -610,6 +610,7 @@
       }
       if (data.type === 'OFFLINE_SYNCED') {
         Swal.fire({toast:true,position:'top-end',icon:'success',title:'Datos offline sincronizados correctamente.',showConfirmButton:false,timer:3500});
+        window.dispatchEvent(new CustomEvent('pwa:sync-complete', {detail:data}));
       }
       if (data.type === 'OFFLINE_AUTH_REQUIRED') {
         Swal.fire({icon:'warning',title:'Inicia sesión para sincronizar',text:'Tus datos siguen guardados en este dispositivo.'});
@@ -624,17 +625,53 @@
 
     let instalacionPwa = null;
     const btnInstalarPwa = document.getElementById('btnInstalarPwa');
+    const modoStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+    function instruccionesInstalacion() {
+      const ua = navigator.userAgent;
+      const esFirefox = /Firefox|FxiOS/i.test(ua);
+      const esAndroid = /Android/i.test(ua);
+      const esIOS = /iPhone|iPad|iPod/i.test(ua);
+      const esSafari = /Safari/i.test(ua) && !/Chrome|Chromium|CriOS|Edg/i.test(ua);
+
+      if (esFirefox && esAndroid) {
+        return '<b>Firefox para Android</b><br>1. Abre el menú ⋮.<br>2. Pulsa <b>Instalar</b> o <b>Agregar a pantalla de inicio</b>.<br>3. Confirma la instalación.';
+      }
+      if (esFirefox && !esIOS) {
+        return '<b>Firefox para Windows</b><br>Busca el icono de <b>aplicación web</b> a la derecha de la barra de direcciones y púlsalo.<br><br>Se requiere Firefox 143 o posterior (150 si procede de Microsoft Store). En macOS/Linux Firefox no ofrece instalación PWA nativa; usa Chrome/Edge o crea un acceso directo.';
+      }
+      if (esIOS) {
+        return '<b>iPhone / iPad</b><br>1. Pulsa el botón <b>Compartir</b>.<br>2. Selecciona <b>Agregar a pantalla de inicio</b>.<br>3. Pulsa <b>Agregar</b>.';
+      }
+      if (esSafari) {
+        return '<b>Safari en macOS</b><br>Abre el menú <b>Archivo</b> y selecciona <b>Agregar al Dock</b>.';
+      }
+      return '<b>Instalación manual</b><br>Abre el menú del navegador y selecciona <b>Instalar aplicación</b>, <b>Aplicaciones → Instalar este sitio</b> o <b>Agregar a pantalla de inicio</b>.';
+    }
+
+    if (!modoStandalone) {
+      // Firefox y Safari no disparan beforeinstallprompt; el botón permanece
+      // disponible para mostrar el procedimiento propio del navegador.
+      btnInstalarPwa.style.display = 'block';
+    }
     window.addEventListener('beforeinstallprompt', event => {
       event.preventDefault();
       instalacionPwa = event;
       btnInstalarPwa.style.display = 'block';
     });
     btnInstalarPwa.addEventListener('click', async () => {
-      if (!instalacionPwa) return;
-      instalacionPwa.prompt();
-      await instalacionPwa.userChoice;
-      instalacionPwa = null;
-      btnInstalarPwa.style.display = 'none';
+      if (instalacionPwa) {
+        instalacionPwa.prompt();
+        const resultado = await instalacionPwa.userChoice;
+        instalacionPwa = null;
+        if (resultado.outcome === 'accepted') btnInstalarPwa.style.display = 'none';
+        return;
+      }
+      Swal.fire({
+        icon:'info', title:'Instalar Conexión Inmobiliaria',
+        html: instruccionesInstalacion(), confirmButtonText:'Entendido',
+        confirmButtonColor:'#155bd5'
+      });
     });
     window.addEventListener('appinstalled', () => {
       instalacionPwa = null;

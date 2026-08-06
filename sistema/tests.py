@@ -443,6 +443,8 @@ class FormulariosYContratosTests(TestCase):
         pagina = self.client.get(reverse('dashboard'))
         self.assertContains(pagina, 'pwa/manifest.webmanifest')
         self.assertContains(pagina, 'service-worker.js')
+        self.assertContains(pagina, 'Firefox para Android')
+        self.assertContains(pagina, 'Agregar a pantalla de inicio')
 
         worker = self.client.get(reverse('pwa_service_worker'))
         self.assertEqual(worker.status_code, 200)
@@ -454,6 +456,14 @@ class FormulariosYContratosTests(TestCase):
         offline = self.client.get(reverse('pwa_offline'))
         self.assertEqual(offline.status_code, 200)
         self.assertContains(offline, 'Estás sin conexión')
+
+    def test_dashboard_kpis_estan_conectados_con_sus_modulos(self):
+        response = self.client.get(reverse('dashboard'))
+        self.assertContains(response, f'href="{reverse("propiedades_lista")}"')
+        self.assertContains(response, f'href="{reverse("calendario")}"')
+        self.assertContains(response, f'href="{reverse("compradores_lista")}"')
+        self.assertContains(response, f'href="{reverse("contratos_lista")}"')
+        self.assertContains(response, 'pwa:sync-complete')
 
     def test_contrato_save_convierte_precio_string_a_decimal(self):
         usuario = User.objects.create_user('agente', 'agente@example.com', 'password123')
