@@ -23,6 +23,9 @@
   .comision-cell { font-size:13px; color:#16a34a; font-weight:600; }
   .empty-state { text-align:center; padding:60px 20px; color:#9ca3af; }
   .empty-state i { font-size:56px; margin-bottom:16px; display:block; }
+  .factura-acciones { display:flex; align-items:center; gap:6px; margin-top:6px; white-space:nowrap; }
+  .btn-enviar-pdf { border:1.5px solid #16a34a; color:#15803d; background:#fff; }
+  .btn-enviar-pdf:hover { background:#16a34a; color:#fff; }
 </style>
 {% endblock %}
 
@@ -96,6 +99,15 @@
                 <div><small class="{% if c.factura.correo_enviado %}text-success{% else %}text-warning{% endif %}">
                   {% if c.factura.correo_enviado %}<i class="fa fa-check-circle"></i> Enviada{% else %}<i class="fa fa-clock"></i> Pendiente{% endif %}
                 </small></div>
+                <div class="factura-acciones">
+                  <a href="{% url 'factura_pdf' c.factura.pk %}" target="_blank" class="btn btn-accion" title="Ver factura PDF" style="border:1.5px solid #7c3aed;color:#7c3aed;"><i class="fa fa-file-pdf me-1"></i>PDF</a>
+                  <form method="POST" action="{% url 'contrato_enviar_correo' c.pk %}" class="form-enviar-correo d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-accion btn-enviar-correo btn-enviar-pdf" title="Enviar factura PDF a {{ c.comprador.user.email }}">
+                      <i class="fa fa-envelope me-1"></i>{% if c.factura.correo_enviado %}Reenviar{% else %}Enviar{% endif %}
+                    </button>
+                  </form>
+                </div>
               {% else %}<span class="text-muted">—</span>{% endif %}
             </td>
             <td>
@@ -103,15 +115,6 @@
                   <a href="{% url 'contrato_editar' c.pk %}" class="btn primary-btn btn-accion">
                     <i class="fa fa-pen"></i>
                 </a>
-                {% if c.estado == 'firmado' and c.factura %}
-                  <a href="{% url 'factura_pdf' c.factura.pk %}" target="_blank" class="btn btn-accion" title="Descargar factura PDF" style="border:1.5px solid #7c3aed;color:#7c3aed;"><i class="fa fa-file-pdf"></i></a>
-                  <form method="POST" action="{% url 'contrato_enviar_correo' c.pk %}" class="form-enviar-correo" style="display:inline;">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-accion btn-enviar-correo" title="Enviar factura al comprador">
-                      <i class="fa fa-envelope"></i>
-                    </button>
-                  </form>
-                {% endif %}
                 {% if c.documento %}
                 <a href="{{ c.documento.url }}" target="_blank" class="btn btn-accion"
                   style="border:1.5px solid var(--primary);color:var(--primary);border-radius:6px;"
@@ -167,7 +170,15 @@ function iniciarTour() {
 }
 
 $(function() {
-  $('#tablaContratos').DataTable({ order: [[0,'desc']], columnDefs: [{ orderable:false, targets:[-1] }] });
+  $('#tablaContratos').DataTable({
+    order: [[0,'desc']],
+    columnDefs: [
+      { orderable:false, targets:[-1] },
+      { responsivePriority:1, targets:8 },
+      { responsivePriority:2, targets:0 },
+      { responsivePriority:3, targets:-1 }
+    ]
+  });
 
   $('.form-enviar-correo').on('submit', function() {
     const btn = $(this).find('.btn-enviar-correo');

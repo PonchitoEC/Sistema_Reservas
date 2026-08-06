@@ -19,6 +19,28 @@ from django.core.exceptions import ImproperlyConfigured
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
+def _cargar_entorno_local():
+    """Carga .env solo para desarrollo, sin reemplazar variables del servidor."""
+    ruta = BASE_DIR / '.env'
+    if not ruta.exists():
+        return
+    for linea in ruta.read_text(encoding='utf-8').splitlines():
+        linea = linea.strip()
+        if not linea or linea.startswith('#') or '=' not in linea:
+            continue
+        nombre, valor = linea.split('=', 1)
+        nombre = nombre.strip()
+        valor = valor.strip().strip('"').strip("'")
+        # Algunos lanzadores locales crean las variables con valor vacío.
+        # En ese caso sí debe utilizarse el valor privado de .env. Una
+        # variable real de Render nunca se reemplaza.
+        if nombre and not os.environ.get(nombre):
+            os.environ[nombre] = valor
+
+
+_cargar_entorno_local()
+
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 

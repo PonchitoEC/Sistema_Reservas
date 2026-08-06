@@ -268,7 +268,7 @@ class ContratoVenta(models.Model):
         usa_smtp = settings.EMAIL_BACKEND == 'django.core.mail.backends.smtp.EmailBackend'
         if usa_smtp and (not settings.EMAIL_HOST_USER or not settings.EMAIL_HOST_PASSWORD):
             logger.error('SMTP no configurado; no se puede enviar el contrato %s', self.numero_contrato)
-            self._ultimo_error_email = 'Faltan EMAIL_HOST_USER o EMAIL_HOST_PASSWORD en Render.'
+            self._ultimo_error_email = 'Faltan las variables EMAIL_HOST_USER o EMAIL_HOST_PASSWORD en el entorno del servidor.'
             return False
 
         if self.estado != 'firmado':
