@@ -218,7 +218,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script>
 const API = '{% url "reportes_api" %}';
 const COLORES = ['#2563eb','#16a34a','#ca8a04','#dc2626','#7c3aed','#0891b2','#d97706','#be185d'];
@@ -388,7 +387,13 @@ function cambiarTab(nombre, btn) {
   btn.classList.add('active');
   document.getElementById('tab-' + nombre).classList.add('active');
   if (!cargado[nombre]) { cargadores[nombre](); cargado[nombre] = true; }
-  setTimeout(() => $.fn.dataTable.tables({visible:true, api:true}).columns.adjust().responsive.recalc(), 0);
+  setTimeout(() => {
+    const tablasVisibles = $.fn.dataTable.tables({visible:true, api:true});
+    tablasVisibles.columns.adjust();
+    if (tablasVisibles.responsive && typeof tablasVisibles.responsive.recalc === 'function') {
+      tablasVisibles.responsive.recalc();
+    }
+  }, 0);
 }
 
 // ── Inicializar ──────────────────────────────────────

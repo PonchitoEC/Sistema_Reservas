@@ -749,20 +749,29 @@
 
     // ── Configuración global DataTables en español ─────
     $(function() {
+      // Las tablas y gráficas deben seguir funcionando aunque una CDN opcional
+      // (Buttons/JSZip/pdfmake) no responda. En ese caso solo se oculta exportar.
+      const tiposExportacion = ['copyHtml5', 'csvHtml5', 'excelHtml5', 'pdfHtml5', 'print', 'colvis'];
+      const dtButtonsDisponible = typeof $.fn.dataTable.Buttons !== 'undefined'
+        && tiposExportacion.every(tipo => $.fn.dataTable.ext.buttons[tipo]);
+      const dtDom = dtButtonsDisponible
+        ? '<"dt-toolbar mb-3"<"dt-export-row"B><"row align-items-center g-2 mt-2"<"col-sm-6"l><"col-sm-6 text-sm-end"f>>>rt<"row mt-3"<"col-sm-6"i><"col-sm-6"p>>'
+        : '<"row align-items-center g-2 mb-3"<"col-sm-6"l><"col-sm-6 text-sm-end"f>>rt<"row mt-3"<"col-sm-6"i><"col-sm-6"p>>';
+      const dtBotones = dtButtonsDisponible ? [
+        { extend: 'copyHtml5', text: '<i class="fa-regular fa-copy"></i> Copiar', className: 'btn btn-outline-secondary btn-sm', exportOptions: { columns: ':visible:not(.no-export)', stripHtml: true } },
+        { extend: 'csvHtml5', text: '<i class="fa-solid fa-file-csv"></i> CSV', className: 'btn btn-outline-secondary btn-sm', bom: true, exportOptions: { columns: ':visible:not(.no-export)', stripHtml: true } },
+        { extend: 'excelHtml5', text: '<i class="fa-regular fa-file-excel"></i> Excel', className: 'btn btn-outline-success btn-sm', exportOptions: { columns: ':visible:not(.no-export)', stripHtml: true } },
+        { extend: 'pdfHtml5', text: '<i class="fa-regular fa-file-pdf"></i> PDF', className: 'btn btn-outline-danger btn-sm', orientation: 'landscape', pageSize: 'A4', exportOptions: { columns: ':visible:not(.no-export)', stripHtml: true } },
+        { extend: 'print', text: '<i class="fa-solid fa-print"></i> Imprimir', className: 'btn btn-outline-primary btn-sm', exportOptions: { columns: ':visible:not(.no-export)', stripHtml: true } },
+        { extend: 'colvis', text: '<i class="fa-solid fa-table-columns"></i> Columnas', className: 'btn btn-outline-secondary btn-sm' }
+      ] : [];
       $.extend(true, $.fn.dataTable.defaults, {
         language: { url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/es-ES.json' },
         responsive: true,
         pageLength: 10,
         lengthMenu: [10, 25, 50, 100],
-        dom: '<"dt-toolbar mb-3"<"dt-export-row"B><"row align-items-center g-2 mt-2"<"col-sm-6"l><"col-sm-6 text-sm-end"f>>>rt<"row mt-3"<"col-sm-6"i><"col-sm-6"p>>',
-        buttons: [
-          { extend: 'copyHtml5', text: '<i class="fa-regular fa-copy"></i> Copiar', className: 'btn btn-outline-secondary btn-sm', exportOptions: { columns: ':visible:not(.no-export)', stripHtml: true } },
-          { extend: 'csvHtml5', text: '<i class="fa-solid fa-file-csv"></i> CSV', className: 'btn btn-outline-secondary btn-sm', bom: true, exportOptions: { columns: ':visible:not(.no-export)', stripHtml: true } },
-          { extend: 'excelHtml5', text: '<i class="fa-regular fa-file-excel"></i> Excel', className: 'btn btn-outline-success btn-sm', exportOptions: { columns: ':visible:not(.no-export)', stripHtml: true } },
-          { extend: 'pdfHtml5', text: '<i class="fa-regular fa-file-pdf"></i> PDF', className: 'btn btn-outline-danger btn-sm', orientation: 'landscape', pageSize: 'A4', exportOptions: { columns: ':visible:not(.no-export)', stripHtml: true } },
-          { extend: 'print', text: '<i class="fa-solid fa-print"></i> Imprimir', className: 'btn btn-outline-primary btn-sm', exportOptions: { columns: ':visible:not(.no-export)', stripHtml: true } },
-          { extend: 'colvis', text: '<i class="fa-solid fa-table-columns"></i> Columnas', className: 'btn btn-outline-secondary btn-sm' }
-        ],
+        dom: dtDom,
+        buttons: dtBotones,
       });
 
       // ── jQuery Validate: mensajes en español ─────────
