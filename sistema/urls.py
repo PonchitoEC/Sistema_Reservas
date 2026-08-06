@@ -36,6 +36,7 @@ urlpatterns = [
     path('contratos/<int:pk>/editar/',   views.contrato_editar,   name='contrato_editar'),
     path('contratos/<int:pk>/eliminar/', views.contrato_eliminar, name='contrato_eliminar'),
     path('contratos/<int:pk>/enviar-correo/', views.contrato_enviar_correo, name='contrato_enviar_correo'),
+    path('facturas/<int:pk>/pdf/', views.factura_pdf, name='factura_pdf'),
 
     # ── Calendario de visitas ────────────────────────────
     path('calendario/',                       views.calendario,          name='calendario'),

@@ -296,10 +296,16 @@ $(function() {
       new Chart(document.getElementById('graficaEstadoVisitas'), {
         type: 'doughnut',
         data: {
-          labels:   ['Pendientes', 'Realizadas', 'Canceladas/Otros'],
+          labels:   ['Pendientes', 'Confirmadas', 'Realizadas', 'Canceladas', 'No asistió'],
           datasets: [{
-            data: [ d.visitas - d.visitas_realizadas, d.visitas_realizadas, 0 ],
-            backgroundColor: ['#3b82f6','#22c55e','#ef4444'],
+            data: [
+              d.visitas_por_estado.pendiente,
+              d.visitas_por_estado.confirmada,
+              d.visitas_por_estado.realizada,
+              d.visitas_por_estado.cancelada,
+              d.visitas_por_estado.no_asistio,
+            ],
+            backgroundColor: ['#3b82f6','#22c55e','#6b7280','#ef4444','#f97316'],
             borderWidth: 2, borderColor: '#fff',
           }],
         },

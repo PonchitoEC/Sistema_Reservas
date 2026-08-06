@@ -6,7 +6,7 @@ from decimal import Decimal, InvalidOperation
 
 from django.conf import settings
 from django.contrib.auth.models import User
-from django.core.mail import send_mail
+from django.core.mail import EmailMessage
 from django.db import models, IntegrityError, transaction
 from django.utils import timezone
 
@@ -271,26 +271,40 @@ class ContratoVenta(models.Model):
             self._ultimo_error_email = 'Faltan EMAIL_HOST_USER o EMAIL_HOST_PASSWORD en Render.'
             return False
 
+        if self.estado != 'firmado':
+            self._ultimo_error_email = 'La factura solo puede enviarse cuando el contrato está firmado.'
+            return False
+
+        factura = Factura.obtener_o_crear_para_contrato(self)
         tipo_propiedad = self.propiedad.get_tipo_display()
-        asunto = f'Confirmación de compra: {self.propiedad.titulo}'
+        asunto = f'Confirmación de compra y factura - {self.propiedad.titulo}'
         mensaje = (
             f'Estimado/a {comprador_user.get_full_name() or comprador_user.username},\n\n'
             f'El contrato de venta para {self.propiedad.titulo} ({tipo_propiedad}) ha quedado firmado '
-            f'y registrado. Ahora este inmueble ya forma parte de su propiedad.\n\n'
+            f'y registrado. Adjuntamos la factura/comprobante interno de la operación.\n\n'
             f'Número de contrato: {self.numero_contrato}\n'
+            f'Número de factura: {factura.numero_factura}\n'
             f'Precio acordado: ${self.precio_acordado:,.2f}\n\n'
             'Gracias por confiar en nosotros.\n\n'
             'Equipo de Inmobiliaria'
         )
 
         try:
-            send_mail(
-                asunto,
-                mensaje,
-                settings.DEFAULT_FROM_EMAIL,
-                [comprador_user.email],
-                fail_silently=False,
+            correo = EmailMessage(
+                subject=asunto,
+                body=mensaje,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                to=[comprador_user.email],
             )
+            correo.attach(
+                f'Factura-{factura.numero_factura}.pdf',
+                factura.generar_pdf(),
+                'application/pdf',
+            )
+            correo.send(fail_silently=False)
+            factura.correo_enviado = True
+            factura.fecha_envio_correo = timezone.now()
+            factura.save(update_fields=['correo_enviado', 'fecha_envio_correo'])
             return True
         except smtplib.SMTPAuthenticationError:
             self._ultimo_error_email = 'Gmail rechazó la autenticación. Guarda una contraseña de aplicación vigente y vuelve a desplegar.'
@@ -383,7 +397,8 @@ class ContratoVenta(models.Model):
             self._recalcular_estado_propiedad(propiedad_anterior)
 
         if self.estado == 'firmado' and not was_firmado:
-            # El envío ya captura sus propios errores y no debe impedir el save.
+            # La factura queda persistida aunque el proveedor SMTP falle.
+            Factura.obtener_o_crear_para_contrato(self)
             self._enviar_notificacion_compra()
 
     def delete(self, *args, **kwargs):
@@ -391,3 +406,144 @@ class ContratoVenta(models.Model):
         resultado = super().delete(*args, **kwargs)
         self._recalcular_estado_propiedad(propiedad)
         return resultado
+
+
+class Factura(models.Model):
+    """Comprobante interno de venta; no representa facturación electrónica SRI."""
+
+    contrato = models.OneToOneField(
+        ContratoVenta, on_delete=models.PROTECT, related_name='factura'
+    )
+    numero_factura = models.CharField(max_length=30, unique=True)
+    fecha_emision = models.DateField(default=timezone.localdate)
+    valor_venta = models.DecimalField(max_digits=12, decimal_places=2)
+    total = models.DecimalField(max_digits=12, decimal_places=2)
+    creado_en = models.DateTimeField(auto_now_add=True)
+    correo_enviado = models.BooleanField(default=False)
+    fecha_envio_correo = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-creado_en']
+        verbose_name = 'Factura / Comprobante'
+        verbose_name_plural = 'Facturas / Comprobantes'
+
+    def __str__(self):
+        return f'{self.numero_factura} — {self.contrato.numero_contrato}'
+
+    @classmethod
+    def _siguiente_numero(cls, year):
+        prefijo = f'FAC-{year}-'
+        maximo = 0
+        for numero in cls.objects.filter(numero_factura__startswith=prefijo).values_list('numero_factura', flat=True):
+            try:
+                maximo = max(maximo, int(numero[len(prefijo):]))
+            except (TypeError, ValueError):
+                continue
+        return f'{prefijo}{maximo + 1:06d}'
+
+    @classmethod
+    def obtener_o_crear_para_contrato(cls, contrato):
+        existente = cls.objects.filter(contrato=contrato).first()
+        if existente:
+            return existente
+
+        year = (contrato.fecha_firma or timezone.localdate()).year
+        for _ in range(5):
+            try:
+                with transaction.atomic():
+                    return cls.objects.create(
+                        contrato=contrato,
+                        numero_factura=cls._siguiente_numero(year),
+                        fecha_emision=contrato.fecha_firma or timezone.localdate(),
+                        valor_venta=contrato.precio_acordado,
+                        total=contrato.precio_acordado,
+                    )
+            except IntegrityError:
+                existente = cls.objects.filter(contrato=contrato).first()
+                if existente:
+                    return existente
+        raise IntegrityError('No se pudo generar un número de factura único.')
+
+    def generar_pdf(self):
+        """Genera el comprobante en memoria para descarga o adjunto de email."""
+        from io import BytesIO
+        from reportlab.lib import colors
+        from reportlab.lib.pagesizes import A4
+        from reportlab.pdfgen import canvas
+
+        contrato = self.contrato
+        comprador = contrato.comprador
+        agente = contrato.agente
+        propiedad = contrato.propiedad
+        buffer = BytesIO()
+        pdf = canvas.Canvas(buffer, pagesize=A4)
+        ancho, alto = A4
+
+        pdf.setFillColor(colors.HexColor('#1d4ed8'))
+        pdf.rect(0, alto - 105, ancho, 105, fill=1, stroke=0)
+        pdf.setFillColor(colors.white)
+        pdf.setFont('Helvetica-Bold', 18)
+        pdf.drawString(42, alto - 48, 'CONEXIÓN INMOBILIARIA')
+        pdf.setFont('Helvetica', 11)
+        pdf.drawString(42, alto - 70, 'Sistema de Reservas para Bienes Raíces')
+        pdf.setFont('Helvetica-Bold', 14)
+        pdf.drawRightString(ancho - 42, alto - 52, 'FACTURA / COMPROBANTE')
+
+        y = alto - 138
+        pdf.setFillColor(colors.HexColor('#111827'))
+        pdf.setFont('Helvetica-Bold', 10)
+        pdf.drawString(42, y, f'Factura: {self.numero_factura}')
+        pdf.drawString(250, y, f'Emisión: {self.fecha_emision:%d/%m/%Y}')
+        pdf.drawString(420, y, f'Contrato: {contrato.numero_contrato}')
+
+        def seccion(titulo, filas, inicio_y):
+            pdf.setFillColor(colors.HexColor('#dbeafe'))
+            pdf.rect(42, inicio_y - 5, ancho - 84, 22, fill=1, stroke=0)
+            pdf.setFillColor(colors.HexColor('#1e3a8a'))
+            pdf.setFont('Helvetica-Bold', 10)
+            pdf.drawString(50, inicio_y + 2, titulo)
+            yy = inicio_y - 25
+            pdf.setFillColor(colors.HexColor('#374151'))
+            for etiqueta, valor in filas:
+                pdf.setFont('Helvetica-Bold', 9)
+                pdf.drawString(50, yy, f'{etiqueta}:')
+                pdf.setFont('Helvetica', 9)
+                pdf.drawString(160, yy, str(valor or '—')[:75])
+                yy -= 17
+            return yy - 8
+
+        y = seccion('DATOS DEL COMPRADOR', [
+            ('Nombre', comprador.user.get_full_name() or comprador.user.username),
+            ('Cédula', comprador.cedula), ('Email', comprador.user.email),
+            ('Teléfono', comprador.telefono),
+        ], y - 25)
+        y = seccion('DATOS DE LA PROPIEDAD', [
+            ('Título', propiedad.titulo), ('Tipo', propiedad.get_tipo_display()),
+            ('Dirección', propiedad.direccion), ('Ciudad', propiedad.ciudad),
+            ('Precio acordado', f'USD {contrato.precio_acordado:,.2f}'),
+        ], y)
+        y = seccion('DATOS DEL AGENTE', [
+            ('Nombre', agente.nombre_completo()), ('Cédula', agente.cedula),
+            ('Comisión', f'{agente.comision_pct}%'),
+        ], y)
+
+        pdf.setFillColor(colors.HexColor('#f8fafc'))
+        pdf.rect(42, y - 75, ancho - 84, 82, fill=1, stroke=1)
+        pdf.setFillColor(colors.HexColor('#111827'))
+        pdf.setFont('Helvetica-Bold', 10)
+        pdf.drawString(52, y - 15, 'DETALLE')
+        pdf.setFont('Helvetica', 10)
+        pdf.drawString(52, y - 37, 'Venta de inmueble')
+        pdf.drawRightString(ancho - 52, y - 37, f'USD {self.valor_venta:,.2f}')
+        pdf.setFont('Helvetica-Bold', 12)
+        pdf.drawString(52, y - 62, 'TOTAL')
+        pdf.drawRightString(ancho - 52, y - 62, f'USD {self.total:,.2f}')
+
+        pdf.setFillColor(colors.HexColor('#6b7280'))
+        pdf.setFont('Helvetica-Oblique', 8)
+        pdf.drawCentredString(
+            ancho / 2, 42,
+            'Documento interno generado automáticamente por el Sistema de Reservas para Bienes Raíces.'
+        )
+        pdf.save()
+        return buffer.getvalue()

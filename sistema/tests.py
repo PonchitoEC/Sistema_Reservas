@@ -2,6 +2,7 @@ from decimal import Decimal
 from datetime import timedelta
 import json
 from io import StringIO
+from unittest.mock import patch
 
 from django.contrib.auth.models import Group, User
 from django.core import mail
@@ -10,7 +11,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import AgenteInmobiliario, Comprador, ContratoVenta, Propiedad, Visita
+from .models import AgenteInmobiliario, Comprador, ContratoVenta, Factura, Propiedad, Visita
 
 
 class PersistenciaSeguraTests(TestCase):
@@ -103,7 +104,7 @@ class PersistenciaSeguraTests(TestCase):
         visita.refresh_from_db()
         self.assertEqual(visita.duracion_min, 60)
 
-    def test_contrato_recalcula_propiedad_al_editar_y_eliminar(self):
+    def test_contrato_recalcula_propiedad_al_editar(self):
         call_command('crear_usuarios_produccion', stdout=StringIO())
         contrato = ContratoVenta.objects.get(numero_contrato='DEMO-VENTA-001')
         propiedad = contrato.propiedad
@@ -116,9 +117,7 @@ class PersistenciaSeguraTests(TestCase):
         contrato.save()
         propiedad.refresh_from_db()
         self.assertEqual(propiedad.estado, 'reservada')
-        contrato.delete()
-        propiedad.refresh_from_db()
-        self.assertEqual(propiedad.estado, 'disponible')
+        self.assertTrue(Factura.objects.filter(contrato=contrato).exists())
 
     @override_settings(
         EMAIL_BACKEND='django.core.mail.backends.smtp.EmailBackend',
@@ -184,6 +183,176 @@ class PersistenciaSeguraTests(TestCase):
         response = self.client.post(reverse('usuario_eliminar', args=[usuario.pk]))
         self.assertRedirects(response, reverse('usuarios_lista'))
         self.assertTrue(User.objects.filter(pk=usuario.pk).exists())
+
+
+@override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+class RequisitosAcademicosTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_superuser('admin_req', 'admin-req@example.com', 'password123')
+        grupo, _ = Group.objects.get_or_create(name='Agente')
+        grupo_comprador, _ = Group.objects.get_or_create(name='Comprador')
+
+        self.agente1_user = User.objects.create_user('agente_req_1', 'a1@example.com', 'password123', first_name='Agente', last_name='Uno')
+        self.agente1_user.groups.add(grupo)
+        self.agente1 = AgenteInmobiliario.objects.create(
+            user=self.agente1_user, cedula='REQAGT0001', telefono='0990000001',
+            comision_pct=Decimal('3.00'),
+        )
+        self.agente2_user = User.objects.create_user('agente_req_2', 'a2@example.com', 'password123', first_name='Agente', last_name='Dos')
+        self.agente2_user.groups.add(grupo)
+        self.agente2 = AgenteInmobiliario.objects.create(
+            user=self.agente2_user, cedula='REQAGT0002', telefono='0990000002',
+            comision_pct=Decimal('4.00'),
+        )
+
+        self.comprador1_user = User.objects.create_user('comprador_req_1', 'c1@example.com', 'password123')
+        self.comprador1_user.groups.add(grupo_comprador)
+        self.comprador1 = Comprador.objects.create(
+            user=self.comprador1_user, cedula='REQCOM0001', telefono='0980000001', agente=self.agente1,
+        )
+        self.comprador2_user = User.objects.create_user('comprador_req_2', 'c2@example.com', 'password123')
+        self.comprador2_user.groups.add(grupo_comprador)
+        self.comprador2 = Comprador.objects.create(
+            user=self.comprador2_user, cedula='REQCOM0002', telefono='0980000002', agente=self.agente2,
+        )
+
+        self.propiedad1 = Propiedad.objects.create(
+            titulo='Propiedad requisito 1', tipo='casa', precio=Decimal('100000'),
+            area_m2=Decimal('120'), direccion='Dirección 1', ciudad='Quito', agente=self.agente1,
+        )
+        self.propiedad2 = Propiedad.objects.create(
+            titulo='Propiedad requisito 2', tipo='departamento', precio=Decimal('80000'),
+            area_m2=Decimal('90'), direccion='Dirección 2', ciudad='Quito', agente=self.agente2,
+        )
+        futuro = timezone.now() + timedelta(days=2)
+        self.visita1 = Visita.objects.create(
+            propiedad=self.propiedad1, comprador=self.comprador1, agente=self.agente1,
+            fecha_hora=futuro, estado='pendiente', notas='visita agente uno',
+        )
+        self.visita2 = Visita.objects.create(
+            propiedad=self.propiedad2, comprador=self.comprador2, agente=self.agente2,
+            fecha_hora=futuro + timedelta(hours=1), estado='confirmada', notas='visita agente dos',
+        )
+
+    def _firmar_contrato(self, numero='REQ-CONT-001'):
+        return ContratoVenta.objects.create(
+            propiedad=self.propiedad1, comprador=self.comprador1, agente=self.agente1,
+            precio_acordado=Decimal('95000.00'), numero_contrato=numero, estado='firmado',
+        )
+
+    def test_fullcalendar_admin_filtra_por_agente_y_todos(self):
+        self.client.force_login(self.admin)
+        todos = self.client.get(reverse('visitas_api')).json()
+        filtrados = self.client.get(reverse('visitas_api'), {'agente': self.agente1.pk}).json()
+        self.assertEqual({e['id'] for e in todos}, {self.visita1.pk, self.visita2.pk})
+        self.assertEqual([e['id'] for e in filtrados], [self.visita1.pk])
+
+    def test_fullcalendar_agente_y_comprador_solo_ven_sus_visitas(self):
+        self.client.force_login(self.agente1_user)
+        self.assertEqual([e['id'] for e in self.client.get(reverse('visitas_api')).json()], [self.visita1.pk])
+        self.client.force_login(self.comprador2_user)
+        self.assertEqual([e['id'] for e in self.client.get(reverse('visitas_api')).json()], [self.visita2.pk])
+
+    def test_no_permite_crear_visita_pasada(self):
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            reverse('visita_crear'),
+            data=json.dumps({
+                'propiedad': self.propiedad1.pk, 'comprador': self.comprador1.pk,
+                'agente': self.agente1.pk,
+                'fecha_hora': (timezone.now() - timedelta(hours=1)).isoformat(),
+            }), content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_agente_no_puede_apropiarse_datos_de_otro_agente(self):
+        self.client.force_login(self.agente1_user)
+        response = self.client.put(
+            reverse('visita_editar_api', args=[self.visita1.pk]),
+            data=json.dumps({
+                'propiedad': self.propiedad2.pk, 'comprador': self.comprador2.pk,
+                'agente': self.agente2.pk, 'fecha_hora': self.visita1.fecha_hora.isoformat(),
+                'estado': 'pendiente',
+            }), content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 403)
+        self.visita1.refresh_from_db()
+        self.assertEqual(self.visita1.agente, self.agente1)
+
+    def test_dashboard_y_resumen_usan_datos_reales_y_excluyen_pasadas(self):
+        Visita.objects.create(
+            propiedad=self.propiedad1, comprador=self.comprador1, agente=self.agente1,
+            fecha_hora=timezone.now() - timedelta(days=1), estado='pendiente', notas='pasada',
+        )
+        self.client.force_login(self.admin)
+        dashboard = self.client.get(reverse('dashboard'))
+        self.assertNotContains(dashboard, 'pasada')
+        resumen = self.client.get(reverse('reportes_api'), {'tipo': 'resumen'}).json()
+        self.assertEqual(resumen['total_visitas'], 3)
+        self.assertEqual(resumen['visitas_por_estado']['pendiente'], 2)
+        self.assertIn('total_visitas', resumen)
+
+    def test_reportes_efectividad_comision_y_cierre(self):
+        self.visita1.estado = 'realizada'
+        self.visita1.save()
+        contrato = self._firmar_contrato()
+        self.client.force_login(self.admin)
+        efectividad = self.client.get(reverse('reportes_api'), {'tipo': 'efectividad'}).json()['data']
+        fila = next(d for d in efectividad if d['agente'] == self.agente1.nombre_completo())
+        self.assertEqual(fila['visitas_realizadas'], 1)
+        self.assertEqual(fila['contratos_firmados'], 1)
+        self.assertEqual(fila['tasa_cierre'], 100.0)
+        comisiones = self.client.get(reverse('reportes_api'), {'tipo': 'comisiones'}).json()['data']
+        fila = next(d for d in comisiones if d['agente'] == self.agente1.nombre_completo())
+        self.assertEqual(fila['total_vendido'], 95000.0)
+        self.assertEqual(fila['comision'], 2850.0)
+        cierres = self.client.get(reverse('reportes_api'), {'tipo': 'visitas_cierre'}).json()['data']
+        sin_ventas = next(d for d in cierres if d['agente'] == self.agente2.nombre_completo())
+        self.assertEqual(sin_ventas['visitas_por_cierre'], 0)
+        self.assertEqual(contrato.comision_calculada, Decimal('2850.00'))
+
+    def test_agente_solo_ve_sus_metricas(self):
+        self.client.force_login(self.agente1_user)
+        data = self.client.get(reverse('reportes_api'), {'tipo': 'efectividad'}).json()['data']
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0]['agente'], self.agente1.nombre_completo())
+
+    def test_firmar_crea_factura_pdf_y_email_una_sola_vez(self):
+        contrato = self._firmar_contrato()
+        factura = Factura.objects.get(contrato=contrato)
+        self.assertTrue(factura.numero_factura.startswith(f'FAC-{timezone.localdate().year}-'))
+        self.assertTrue(factura.generar_pdf().startswith(b'%PDF'))
+        self.assertEqual(Factura.objects.filter(contrato=contrato).count(), 1)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, [self.comprador1_user.email])
+        self.assertEqual(mail.outbox[0].attachments[0][2], 'application/pdf')
+        self.assertTrue(mail.outbox[0].attachments[0][1].startswith(b'%PDF'))
+        contrato.observaciones = 'edición posterior'
+        contrato.save()
+        self.assertEqual(Factura.objects.filter(contrato=contrato).count(), 1)
+        self.assertEqual(len(mail.outbox), 1)
+        self.propiedad1.refresh_from_db()
+        self.assertEqual(self.propiedad1.estado, 'vendida')
+
+    def test_reenvio_reutiliza_factura_existente(self):
+        contrato = self._firmar_contrato()
+        factura_pk = contrato.factura.pk
+        self.client.force_login(self.admin)
+        response = self.client.post(reverse('contrato_enviar_correo', args=[contrato.pk]))
+        self.assertRedirects(response, reverse('contratos_lista'))
+        contrato.refresh_from_db()
+        self.assertEqual(contrato.factura.pk, factura_pk)
+        self.assertEqual(Factura.objects.filter(contrato=contrato).count(), 1)
+        self.assertEqual(len(mail.outbox), 2)
+
+    def test_fallo_smtp_conserva_contrato_factura_y_propiedad_vendida(self):
+        with patch('sistema.models.EmailMessage.send', side_effect=OSError('SMTP fuera de línea')):
+            contrato = self._firmar_contrato()
+        self.assertTrue(ContratoVenta.objects.filter(pk=contrato.pk, estado='firmado').exists())
+        factura = Factura.objects.get(contrato=contrato)
+        self.assertFalse(factura.correo_enviado)
+        self.propiedad1.refresh_from_db()
+        self.assertEqual(self.propiedad1.estado, 'vendida')
 
 
 class FormulariosYContratosTests(TestCase):

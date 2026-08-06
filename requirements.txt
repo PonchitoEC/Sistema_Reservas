@@ -12,3 +12,6 @@ dj-database-url==2.2.0
 
 # Archivos estáticos en producción sin servidor externo
 whitenoise==6.7.0
+
+# Generación de facturas/comprobantes PDF en memoria
+reportlab==4.2.5

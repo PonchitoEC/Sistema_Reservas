@@ -403,10 +403,42 @@
           },
         },
         {
+          element: '#campoDormitorios',
+          popover: {
+            title:       '8 · Dormitorios',
+            description: 'Indica cuántos dormitorios posee el inmueble. Para terrenos, oficinas o locales sin dormitorios utiliza cero.',
+            side:        'right', align: 'start',
+          },
+        },
+        {
+          element: '#campoBanos',
+          popover: {
+            title:       '9 · Baños',
+            description: 'Registra el número de baños disponibles en la propiedad.',
+            side:        'right', align: 'start',
+          },
+        },
+        {
+          element: '#campoParqueaderos',
+          popover: {
+            title:       '10 · Parqueaderos',
+            description: 'Registra la cantidad de espacios de estacionamiento incluidos.',
+            side:        'right', align: 'start',
+          },
+        },
+        {
+          element: '#campoDireccion',
+          popover: {
+            title:       '11 · Dirección',
+            description: 'Escribe una dirección suficientemente clara para organizar las visitas y la Ruta del Día.',
+            side:        'top', align: 'start',
+          },
+        },
+        {
           // Paso 8 — Ubicación
           element: '#seccionUbicacion',
           popover: {
-            title:       '8 · Ubicación del inmueble',
+            title:       '12 · Ubicación y coordenadas',
             description: 'La ubicación es clave para el comprador. Completa la dirección exacta, ciudad y sector. Si conoces las coordenadas GPS, agrégalas para mostrar el mapa en el detalle.',
             side:        'top',
             align:       'start',
@@ -416,7 +448,7 @@
           // Paso 9 — Ciudad
           element: '#campoCiudad',
           popover: {
-            title:       '9 · Ciudad',
+            title:       '13 · Ciudad',
             description: 'Escribe la ciudad donde se ubica el inmueble. Este campo se usa en los filtros de búsqueda del catálogo.',
             side:        'bottom',
             align:       'start',
@@ -426,7 +458,7 @@
           // Paso 10 — Sector
           element: '#campoSector',
           popover: {
-            title:       '10 · Sector o barrio',
+            title:       '14 · Sector o barrio',
             description: 'El sector ayuda a los compradores a identificar la zona exacta. Ej: La Carolina, Cumbayá, El Batán. Es importante para las búsquedas por zona.',
             side:        'bottom',
             align:       'start',
@@ -436,7 +468,7 @@
           // Paso 11 — Imagen
           element: '#seccionImagen',
           popover: {
-            title:       '11 · Imagen principal',
+            title:       '15 · Imagen principal',
             description: 'Sube la foto más atractiva del inmueble — idealmente la fachada o el área social. Las propiedades con imagen reciben <strong>hasta 3× más consultas</strong>. Formatos: JPG, PNG.',
             side:        'left',
             align:       'start',
@@ -446,7 +478,7 @@
           // Paso 12 — Agente captador
           element: '#seccionAgente',
           popover: {
-            title:       '12 · Agente captador',
+            title:       '16 · Agente captador',
             description: 'Asigna el agente que captó este inmueble. Al firmar un contrato, el sistema calculará automáticamente la comisión según el porcentaje configurado en el perfil del agente.',
             side:        'left',
             align:       'start',
@@ -456,7 +488,7 @@
           // Paso 13 — Botón guardar
           element: '#btnGuardar',
           popover: {
-            title:       '13 · ¡Todo listo para guardar!',
+            title:       '17 · ¡Todo listo para guardar!',
             description: 'Revisa que los campos obligatorios (<span style="color:#ef4444;">*</span>) estén completos: Título, Tipo, Precio, Área, Dirección y Ciudad. Luego haz clic en <strong>"Crear Propiedad"</strong> para registrarla en el catálogo.',
             side:        'top',
             align:       'center',

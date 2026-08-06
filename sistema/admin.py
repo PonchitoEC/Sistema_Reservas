@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User
-from .models import AgenteInmobiliario, Comprador, Propiedad, Visita, ContratoVenta
+from .models import AgenteInmobiliario, Comprador, Propiedad, Visita, ContratoVenta, Factura
 
 
 # ─────────────────────────────────────────────
@@ -161,3 +161,15 @@ class ContratoVentaAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
     )
+
+
+@admin.register(Factura)
+class FacturaAdmin(admin.ModelAdmin):
+    list_display = ('numero_factura', 'contrato', 'fecha_emision', 'total',
+                    'correo_enviado', 'fecha_envio_correo', 'creado_en')
+    list_filter = ('correo_enviado', 'fecha_emision')
+    search_fields = ('numero_factura', 'contrato__numero_contrato',
+                     'contrato__comprador__user__first_name',
+                     'contrato__comprador__user__last_name')
+    readonly_fields = ('numero_factura', 'contrato', 'fecha_emision', 'valor_venta',
+                       'total', 'correo_enviado', 'fecha_envio_correo', 'creado_en')

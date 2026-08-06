@@ -170,7 +170,7 @@
             <table id="tablaReporteComisiones" class="table mb-0">
               <thead><tr>
                 <th>#</th><th>Agente</th><th>% Comisión</th>
-                <th>Contratos</th><th>Total USD</th>
+                <th>Contratos</th><th>Total vendido</th><th>Comisión</th>
               </tr></thead>
               <tbody id="tablaComisiones"></tbody>
             </table>
@@ -325,9 +325,10 @@ async function cargarComisiones() {
       <td class="fw-semibold">${r.agente}</td>
       <td>${r.comision_pct}%</td>
       <td>${r.contratos}</td>
+      <td style="font-weight:600;color:#2563eb;">$${fmt(r.total_vendido)}</td>
       <td style="font-weight:700;color:#16a34a;">$${fmt(r.comision)}</td>
     </tr>`).join('');
-  actualizarDataTable('tablaReporteComisiones', [[4, 'desc']]);
+  actualizarDataTable('tablaReporteComisiones', [[5, 'desc']]);
 }
 
 // ── Tab: Visitas para cerrar ─────────────────────────

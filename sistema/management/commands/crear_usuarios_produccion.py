@@ -28,7 +28,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
 
-from sistema.models import AgenteInmobiliario, Comprador, ContratoVenta, Propiedad, Visita
+from sistema.models import AgenteInmobiliario, Comprador, ContratoVenta, Factura, Propiedad, Visita
 
 
 class Command(BaseCommand):
@@ -206,6 +206,9 @@ class Command(BaseCommand):
                 estado=estado, fecha_firma=fecha_firma,
                 comision_calculada=comision.quantize(Decimal("0.01")),
             )
+            if estado == "firmado":
+                contrato.refresh_from_db()
+                Factura.obtener_o_crear_para_contrato(contrato)
 
         # Reflejar los estados finales de los contratos en las propiedades.
         Propiedad.objects.filter(titulo="Casa familiar en Cumbayá").update(estado="vendida")

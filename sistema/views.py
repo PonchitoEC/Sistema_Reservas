@@ -6,15 +6,16 @@ from django.contrib.auth.models import User, Group
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.urls import reverse
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.core.exceptions import ValidationError
 from django.views.decorators.http import require_POST, require_http_methods
 from django.db import IntegrityError, transaction
 from django.db.models.deletion import ProtectedError
 from django.db.models import Count, Sum, Avg, Q
 from django.db.models.functions import TruncMonth
+from django.utils import timezone
 import json
-from .models import AgenteInmobiliario, Comprador, Propiedad, Visita, ContratoVenta
+from .models import AgenteInmobiliario, Comprador, Propiedad, Visita, ContratoVenta, Factura
 from .decoradores import _obtener_rol as obtener_rol, rol_requerido
 from django.views.decorators.http import require_POST
 
@@ -201,14 +202,17 @@ def dashboard(request):
     rol  = obtener_rol(user)
 
     # KPIs según rol
-    if rol == 'agente':
+    if rol in {'agente', 'vendedor'}:
         try:
             agente = user.agente
             total_propiedades  = Propiedad.objects.filter(agente=agente).count()
             visitas_pendientes = Visita.objects.filter(agente=agente, estado='pendiente').count()
             total_compradores  = Comprador.objects.filter(agente=agente).count()
             contratos_firmados = ContratoVenta.objects.filter(agente=agente, estado='firmado').count()
-            ultimas_visitas    = Visita.objects.filter(agente=agente, estado__in=['pendiente','confirmada']).select_related('propiedad','comprador__user','agente__user').order_by('fecha_hora')[:5]
+            ultimas_visitas    = Visita.objects.filter(
+                agente=agente, estado__in=['pendiente','confirmada'],
+                fecha_hora__gte=timezone.now(),
+            ).select_related('propiedad','comprador__user','agente__user').order_by('fecha_hora')[:5]
         except AgenteInmobiliario.DoesNotExist:
             total_propiedades = visitas_pendientes = total_compradores = contratos_firmados = 0
             ultimas_visitas = []
@@ -219,16 +223,21 @@ def dashboard(request):
             visitas_pendientes = Visita.objects.filter(comprador=comprador, estado='pendiente').count()
             total_compradores  = 0
             contratos_firmados = ContratoVenta.objects.filter(comprador=comprador, estado='firmado').count()
-            ultimas_visitas    = Visita.objects.filter(comprador=comprador).select_related('propiedad','agente__user').order_by('fecha_hora')[:5]
+            ultimas_visitas    = Visita.objects.filter(
+                comprador=comprador, estado__in=['pendiente','confirmada'],
+                fecha_hora__gte=timezone.now(),
+            ).select_related('propiedad','comprador__user','agente__user').order_by('fecha_hora')[:5]
         except Comprador.DoesNotExist:
-            total_propiedades = visitas_pendientes = contratos_firmados = 0
+            total_propiedades = visitas_pendientes = total_compradores = contratos_firmados = 0
             ultimas_visitas = []
     else:  # administrador
         total_propiedades  = Propiedad.objects.count()
         visitas_pendientes = Visita.objects.filter(estado='pendiente').count()
         total_compradores  = Comprador.objects.count()
         contratos_firmados = ContratoVenta.objects.filter(estado='firmado').count()
-        ultimas_visitas    = Visita.objects.filter(estado__in=['pendiente','confirmada']).select_related('propiedad','comprador__user','agente__user').order_by('fecha_hora')[:5]
+        ultimas_visitas    = Visita.objects.filter(
+            estado__in=['pendiente','confirmada'], fecha_hora__gte=timezone.now(),
+        ).select_related('propiedad','comprador__user','agente__user').order_by('fecha_hora')[:5]
 
     return render(request, 'dashboard.html', {
         'rol': rol,
@@ -503,7 +512,7 @@ def compradores_lista(request):
     rol  = obtener_rol(request.user)
     qs   = Comprador.objects.select_related('user', 'agente__user').all()
     # El agente solo ve sus compradores asignados
-    if rol == 'agente':
+    if rol in {'agente', 'vendedor'}:
         qs = qs.filter(agente=request.user.agente)
     return render(request, 'compradores_lista.html', {'compradores': qs, 'rol': rol})
 
@@ -515,7 +524,7 @@ def comprador_editar(request, pk):
     agentes   = AgenteInmobiliario.objects.filter(estado='activo').select_related('user')
 
     # El agente solo puede editar compradores asignados a él
-    if rol == 'agente':
+    if rol in {'agente', 'vendedor'}:
         try:
             if comprador.agente != request.user.agente:
                 messages.error(request, 'No tienes permiso para editar este comprador.')
@@ -583,9 +592,9 @@ def comprador_eliminar(request, pk):
 def contratos_lista(request):
     rol = obtener_rol(request.user)
     qs  = ContratoVenta.objects.select_related(
-        'propiedad', 'comprador__user', 'agente__user'
+        'propiedad', 'comprador__user', 'agente__user', 'factura'
     ).all()
-    if rol == 'agente':
+    if rol in {'agente', 'vendedor'}:
         qs = qs.filter(agente=request.user.agente)
     return render(request, 'contratos_lista.html', {'contratos': qs, 'rol': rol})
 
@@ -686,6 +695,15 @@ def contrato_crear(request):
 @require_POST
 def contrato_enviar_correo(request, pk):
     contrato = get_object_or_404(ContratoVenta, pk=pk)
+    rol = obtener_rol(request.user)
+    if rol == 'agente':
+        perfil = _obtener_o_crear_perfil_agente(request.user)
+        if not perfil or contrato.agente_id != perfil.pk:
+            messages.error(request, 'No tienes permiso para enviar esta factura.')
+            return redirect('contratos_lista')
+    if contrato.estado != 'firmado':
+        messages.error(request, 'Solo se puede enviar la factura de un contrato firmado.')
+        return redirect('contratos_lista')
     if contrato._enviar_notificacion_compra():
         messages.success(request, f'Correo enviado al comprador ({getattr(contrato.comprador.user, "email", "—")}).')
     else:
@@ -800,7 +818,11 @@ def contrato_eliminar(request, pk):
     contrato = get_object_or_404(ContratoVenta, pk=pk)
     if request.method == 'POST':
         num = contrato.numero_contrato
-        contrato.delete()
+        try:
+            contrato.delete()
+        except ProtectedError:
+            messages.error(request, 'No se puede eliminar un contrato que ya tiene una factura emitida.')
+            return redirect('contratos_lista')
         messages.success(request, f'Contrato #{num} eliminado.')
         return redirect('contratos_lista')
     return render(request, 'confirmar_eliminar.html', {
@@ -808,6 +830,21 @@ def contrato_eliminar(request, pk):
         'titulo': 'Eliminar Contrato',
         'cancelar_url': reverse('contratos_lista'),
     })
+
+
+@rol_requerido('administrador', 'agente')
+def factura_pdf(request, pk):
+    factura = get_object_or_404(
+        Factura.objects.select_related('contrato__agente'), pk=pk
+    )
+    if obtener_rol(request.user) == 'agente':
+        perfil = _obtener_o_crear_perfil_agente(request.user)
+        if not perfil or factura.contrato.agente_id != perfil.pk:
+            messages.error(request, 'No tienes permiso para descargar esta factura.')
+            return redirect('contratos_lista')
+    response = HttpResponse(factura.generar_pdf(), content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="Factura-{factura.numero_factura}.pdf"'
+    return response
 
 # ═══════════════════════════════════════════════════════════
 # CALENDARIO DE VISITAS — FULLCALENDAR
@@ -821,11 +858,12 @@ def calendario(request):
     compradores = Comprador.objects.select_related('user').order_by('user__last_name')
 
     # Agente solo ve sus datos
-    if rol == 'agente':
+    if rol in {'agente', 'vendedor'}:
         try:
             agente      = request.user.agente
             propiedades = propiedades.filter(agente=agente)
             compradores = compradores.filter(agente=agente)
+            agentes = agentes.filter(pk=agente.pk)
         except AgenteInmobiliario.DoesNotExist:
             pass
 
@@ -858,7 +896,7 @@ def visitas_api(request):
         qs = qs.filter(fecha_hora__lte=end)
 
     # Filtrar por agente si corresponde
-    if rol == 'agente':
+    if rol in {'agente', 'vendedor'}:
         try:
             qs = qs.filter(agente=request.user.agente)
         except AgenteInmobiliario.DoesNotExist:
@@ -868,6 +906,13 @@ def visitas_api(request):
             qs = qs.filter(comprador=request.user.comprador)
         except Comprador.DoesNotExist:
             qs = qs.none()
+    elif rol == 'administrador':
+        agente_id = request.GET.get('agente', '').strip()
+        if agente_id:
+            if agente_id.isdigit():
+                qs = qs.filter(agente_id=int(agente_id))
+            else:
+                qs = qs.none()
 
     # Colores por estado
     COLORES = {
@@ -943,7 +988,7 @@ def visita_crear(request):
         propiedad = get_object_or_404(Propiedad, pk=data['propiedad'])
         comprador = get_object_or_404(Comprador, pk=data['comprador'])
         agente = AgenteInmobiliario.objects.filter(pk=data.get('agente')).first()
-        if rol == 'agente':
+        if rol in {'agente', 'vendedor'}:
             agente = _obtener_o_crear_perfil_agente(request.user)
             if not agente:
                 return JsonResponse({'ok': False, 'error': 'Tu perfil de agente no existe.'}, status=403)
@@ -983,7 +1028,7 @@ def visita_editar_api(request, pk):
         return JsonResponse({'ok': False, 'error': 'No tienes permiso para editar visitas.'}, status=403)
 
     # Agentes solo pueden editar sus propias visitas
-    if rol == 'agente':
+    if rol in {'agente', 'vendedor'}:
         try:
             if visita.agente != request.user.agente:
                 return JsonResponse({'ok': False, 'error': 'No tienes permiso para editar esta visita.'}, status=403)
@@ -993,9 +1038,17 @@ def visita_editar_api(request, pk):
     try:
         data   = json.loads(request.body)
 
-        visita.propiedad    = get_object_or_404(Propiedad, pk=data['propiedad'])
-        visita.comprador    = get_object_or_404(Comprador, pk=data['comprador'])
-        visita.agente       = AgenteInmobiliario.objects.filter(pk=data.get('agente')).first()
+        propiedad = get_object_or_404(Propiedad, pk=data['propiedad'])
+        comprador = get_object_or_404(Comprador, pk=data['comprador'])
+        agente = AgenteInmobiliario.objects.filter(pk=data.get('agente')).first()
+        if rol in {'agente', 'vendedor'}:
+            agente = _obtener_o_crear_perfil_agente(request.user)
+            if not agente or propiedad.agente_id != agente.pk or comprador.agente_id != agente.pk:
+                return JsonResponse({'ok': False, 'error': 'Solo puedes usar tus propiedades y compradores.'}, status=403)
+
+        visita.propiedad    = propiedad
+        visita.comprador    = comprador
+        visita.agente       = agente
         visita.fecha_hora   = data['fecha_hora']
         visita.duracion_min = int(data.get('duracion_min', 30))
         visita.orden_ruta   = int(data.get('orden_ruta', 1))
@@ -1026,7 +1079,7 @@ def visita_mover(request, pk):
         return JsonResponse({'ok': False, 'error': 'No tienes permiso para mover visitas.'}, status=403)
 
     # Agentes solo pueden mover sus propias visitas
-    if rol == 'agente':
+    if rol in {'agente', 'vendedor'}:
         try:
             if visita.agente != request.user.agente:
                 return JsonResponse({'ok': False, 'error': 'No tienes permiso para mover esta visita.'}, status=403)
@@ -1059,7 +1112,7 @@ def visita_eliminar_api(request, pk):
         return JsonResponse({'ok': False, 'error': 'No tienes permiso para eliminar visitas.'}, status=403)
 
     # Agentes solo pueden eliminar sus propias visitas
-    if rol == 'agente':
+    if rol in {'agente', 'vendedor'}:
         try:
             if visita.agente != request.user.agente:
                 return JsonResponse({'ok': False, 'error': 'No tienes permiso para eliminar esta visita.'}, status=403)
@@ -1079,16 +1132,15 @@ def visita_eliminar_api(request, pk):
 
 @login_required
 def ruta_del_dia(request):
-    from datetime import date
     rol = obtener_rol(request.user)
 
     # Fecha seleccionada (por defecto hoy)
-    fecha_str = request.GET.get('fecha', date.today().isoformat())
+    fecha_str = request.GET.get('fecha', timezone.localdate().isoformat())
     try:
         from datetime import datetime
         fecha = datetime.strptime(fecha_str, '%Y-%m-%d').date()
     except ValueError:
-        fecha = date.today()
+        fecha = timezone.localdate()
 
     # Filtrar visitas del día ordenadas por orden_ruta
     qs = Visita.objects.filter(
@@ -1098,7 +1150,7 @@ def ruta_del_dia(request):
     ).order_by('orden_ruta', 'fecha_hora')
 
     # Agente solo ve las suyas
-    if rol == 'agente':
+    if rol in {'agente', 'vendedor'}:
         try:
             qs = qs.filter(agente=request.user.agente)
         except AgenteInmobiliario.DoesNotExist:
@@ -1131,7 +1183,7 @@ def reordenar_ruta(request):
         data  = json.loads(request.body)
         orden = data.get('orden', [])   # lista de PKs en el nuevo orden
         # Si es agente, verificar que todas las visitas a reordenar le pertenecen
-        if rol == 'agente':
+        if rol in {'agente', 'vendedor'}:
             try:
                 agente = request.user.agente
                 for pk in orden:
@@ -1165,7 +1217,7 @@ def confirmar_asistencia(request, pk):
             return JsonResponse({'ok': False, 'error': 'Tu perfil de comprador no existe.'}, status=403)
 
     # Agentes solo pueden confirmar asistencia en sus visitas
-    if rol == 'agente':
+    if rol in {'agente', 'vendedor'}:
         try:
             if visita.agente != request.user.agente:
                 return JsonResponse({'ok': False, 'error': 'No tienes permiso para confirmar esta visita.'}, status=403)
@@ -1210,16 +1262,19 @@ def reportes_api(request):
 
     # Si es agente, restringir a su propio perfil
     filtro_agente = {}
-    if rol == 'agente':
+    filtro_perfil = {}
+    if rol in {'agente', 'vendedor'}:
         try:
-            filtro_agente = {'agente': request.user.agente}
+            perfil_agente = request.user.agente
+            filtro_agente = {'agente': perfil_agente}
+            filtro_perfil = {'pk': perfil_agente.pk}
         except AgenteInmobiliario.DoesNotExist:
             return JsonResponse({})
 
     # ── 1. Efectividad por agente ─────────────────────
     if tipo == 'efectividad':
         agentes = AgenteInmobiliario.objects.filter(
-            estado='activo', **filtro_agente
+            estado='activo', **filtro_perfil
         ).select_related('user').annotate(
             total_visitas=Count('visitas', distinct=True),
             visitas_realizadas=Count(
@@ -1252,7 +1307,7 @@ def reportes_api(request):
     # ── 2. Comisiones por agente ──────────────────────
     elif tipo == 'comisiones':
         agentes = AgenteInmobiliario.objects.filter(
-            estado='activo', **filtro_agente
+            estado='activo', **filtro_perfil
         ).select_related('user').annotate(
             total_comision=Sum(
                 'contratos__comision_calculada',
@@ -1263,6 +1318,10 @@ def reportes_api(request):
                 filter=Q(contratos__estado='firmado'),
                 distinct=True
             ),
+            total_vendido=Sum(
+                'contratos__precio_acordado',
+                filter=Q(contratos__estado='firmado')
+            ),
         )
 
         data = []
@@ -1272,13 +1331,14 @@ def reportes_api(request):
                 'comision':      float(a.total_comision or 0),
                 'contratos':     a.num_contratos,
                 'comision_pct':  float(a.comision_pct),
+                'total_vendido': float(a.total_vendido or 0),
             })
         return JsonResponse({'data': data})
 
     # ── 3. Visitas requeridas para cerrar una venta ───
     elif tipo == 'visitas_cierre':
         agentes = AgenteInmobiliario.objects.filter(
-            estado='activo', **filtro_agente
+            estado='activo', **filtro_perfil
         ).select_related('user').annotate(
             visitas_realizadas=Count(
                 'visitas',
@@ -1294,9 +1354,9 @@ def reportes_api(request):
 
         data = []
         for a in agentes:
-            visitas_por_cierre = round(
-                a.visitas_realizadas / a.contratos_firmados
-                if a.contratos_firmados > 0 else a.visitas_realizadas, 1
+            visitas_por_cierre = (
+                round(a.visitas_realizadas / a.contratos_firmados, 1)
+                if a.contratos_firmados > 0 else 0
             )
             data.append({
                 'agente':             a.nombre_completo(),
@@ -1351,8 +1411,12 @@ def reportes_api(request):
 
     # ── 5. Resumen general (KPIs texto) ───────────────
     elif tipo == 'resumen':
-        total_propiedades  = Propiedad.objects.count()
+        total_propiedades  = Propiedad.objects.filter(**filtro_agente).count()
         total_visitas      = Visita.objects.filter(**filtro_agente).count()
+        estados_visitas = {
+            estado: Visita.objects.filter(estado=estado, **filtro_agente).count()
+            for estado, _ in Visita.ESTADO_CHOICES
+        }
         visitas_realizadas = Visita.objects.filter(
             estado='realizada', **filtro_agente).count()
         contratos_firmados = ContratoVenta.objects.filter(
@@ -1376,6 +1440,7 @@ def reportes_api(request):
             'comision_total':     float(comision_total),
             'tasa_global':        tasa_global,
             'visitas_por_cierre': visitas_por_cierre,
+            'visitas_por_estado': estados_visitas,
         })
 
     return JsonResponse({'error': 'tipo no reconocido'}, status=400)
