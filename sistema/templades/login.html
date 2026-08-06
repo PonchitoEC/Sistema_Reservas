@@ -170,7 +170,8 @@
               </div>
             </div>
 
-            <button type="submit" class="btn primary-btn btn-auth">
+            <div id="loginError" class="alert alert-danger d-none" role="alert"></div>
+            <button type="submit" class="btn primary-btn btn-auth" id="btnLogin">
               <i class="lni lni-enter me-2"></i> Iniciar Sesión
             </button>
           </form>
@@ -192,11 +193,51 @@
 {% block scripts %}
 <script>
   $(function() {
-    $('#formLogin').validate({
+    const form = $('#formLogin');
+    form.validate({
       rules: {
         username: { required: true },
         password: { required: true, minlength: 4 },
       },
+    });
+
+    form.on('submit', async function(event) {
+      event.preventDefault();
+      if (!form.valid()) return;
+
+      const btn = document.getElementById('btnLogin');
+      const error = document.getElementById('loginError');
+      const textoOriginal = btn.innerHTML;
+      error.classList.add('d-none');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Ingresando...';
+
+      try {
+        const response = await fetch(this.action, {
+          method: 'POST',
+          body: new FormData(this),
+          credentials: 'same-origin',
+          headers: {'X-Requested-With': 'XMLHttpRequest'},
+          cache: 'no-store',
+        });
+        const data = await response.json();
+        if (!response.ok || !data.ok) {
+          throw new Error(data.error || 'No se pudo iniciar sesión.');
+        }
+        window.location.replace(data.url || '{% url "dashboard" %}');
+      } catch (err) {
+        // Si el proxy cerró la respuesta después de que Django guardó la
+        // sesión, un GET limpio al dashboard completa el ingreso. Si las
+        // credenciales eran incorrectas, login_required regresará al login.
+        if (err instanceof TypeError) {
+          window.location.replace('{% url "dashboard" %}');
+          return;
+        }
+        error.textContent = err.message;
+        error.classList.remove('d-none');
+        btn.disabled = false;
+        btn.innerHTML = textoOriginal;
+      }
     });
   });
 

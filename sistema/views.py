@@ -100,6 +100,7 @@ def vista_login(request):
         return dashboard(request)
 
     if request.method == 'POST':
+        es_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
         username = request.POST.get('username', '').strip()
         password = request.POST.get('password', '')
 
@@ -109,10 +110,17 @@ def vista_login(request):
             login(request, user)
             messages.success(request, f'Bienvenido, {user.get_full_name() or user.username}.')
             siguiente = request.GET.get('next', '')
+            if es_ajax:
+                return JsonResponse({'ok': True, 'url': siguiente or reverse('dashboard')})
             if siguiente and siguiente not in {'dashboard', reverse('dashboard')}:
                 return redirect(siguiente)
             return dashboard(request)
         else:
+            if es_ajax:
+                return JsonResponse(
+                    {'ok': False, 'error': 'Usuario o contraseña incorrectos.'},
+                    status=401,
+                )
             messages.error(request, 'Usuario o contraseña incorrectos.')
 
     return render(request, 'login.html')

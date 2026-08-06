@@ -40,6 +40,16 @@ class PersistenciaSeguraTests(TestCase):
         self.assertTemplateUsed(response, 'dashboard.html')
         self.assertTrue(response.wsgi_request.user.is_authenticated)
 
+    def test_login_ajax_crea_sesion_y_devuelve_url_dashboard(self):
+        self.client.logout()
+        response = self.client.post(reverse('login'), {
+            'username': 'admin_guardado',
+            'password': 'password123',
+        }, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {'ok': True, 'url': reverse('dashboard')})
+        self.assertIn('_auth_user_id', self.client.session)
+
     def test_agente_duplicado_no_deja_usuario_huerfano(self):
         existente = User.objects.create_user('existente_guardado', password='password123')
         AgenteInmobiliario.objects.create(
