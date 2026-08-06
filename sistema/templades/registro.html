@@ -10,23 +10,23 @@
     display: flex;
     align-items: center;
     background: linear-gradient(135deg, #f5f7fa 0%, #e8edf5 100%);
-    padding: 60px 0;
+    padding: 32px 0;
   }
   .auth-card {
     background: #fff;
     border-radius: 16px;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.10);
-    padding: 48px 40px;
+    padding: 30px 32px;
     max-width: 560px;
     width: 100%;
     margin: 0 auto;
   }
   .auth-card .auth-logo {
     text-align: center;
-    margin-bottom: 28px;
+    margin-bottom: 16px;
   }
   .auth-card .auth-logo img {
-    height: 70px;
+    height: 52px;
     width: auto;
   }
   .auth-card h2 {
@@ -40,7 +40,7 @@
     text-align: center;
     color: var(--gray-2);
     font-size: 14px;
-    margin-bottom: 32px;
+    margin-bottom: 20px;
   }
   .auth-card .form-label {
     font-weight: 600;
@@ -88,7 +88,7 @@
     color: var(--primary);
     border-bottom: 2px solid var(--primary);
     padding-bottom: 6px;
-    margin: 24px 0 16px;
+    margin: 14px 0 12px;
   }
   .auth-card .auth-footer {
     text-align: center;
@@ -202,7 +202,8 @@
 
             <!-- Datos de acceso -->
             <p class="section-divider">Datos de acceso</p>
-            <div class="mb-3">
+            <div class="row">
+            <div class="col-md-6 mb-3">
               <label class="form-label">Nombre de usuario</label>
               <input
                 type="text"
@@ -213,7 +214,7 @@
                 required
               />
             </div>
-            <div class="mb-3">
+            <div class="col-md-6 mb-3">
               <label class="form-label">Correo electrónico</label>
               <input
                 type="email"
@@ -223,6 +224,7 @@
                 value="{{ datos.email }}"
                 required
               />
+            </div>
             </div>
             <div class="mb-3">
               <label class="form-label">Contraseña</label>

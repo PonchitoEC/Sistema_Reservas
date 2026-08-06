@@ -7,7 +7,7 @@
 <style>
   .page-header { background:linear-gradient(135deg,var(--primary) 0%,#1a4fbb 100%); padding:32px 0 24px; margin-bottom:32px; }
   .page-header h1 { color:#fff; font-size:26px; font-weight:700; margin:0; }
-  .form-card { background:#fff; border-radius:14px; box-shadow:0 3px 20px rgba(0,0,0,.08); padding:32px; margin-bottom:24px; }
+  .form-card { background:#fff; border-radius:14px; box-shadow:0 3px 20px rgba(0,0,0,.08); padding:22px; margin-bottom:16px; }
   .section-title { font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--primary); border-bottom:2px solid var(--primary); padding-bottom:6px; margin-bottom:20px; }
   .form-label { font-weight:600; font-size:13px; color:#374151; margin-bottom:5px; }
   .form-control, .form-select { border-radius:8px; border:1.5px solid #e0e0e0; padding:10px 14px; font-size:14px; transition:border-color .2s; }
@@ -50,13 +50,13 @@
     {% csrf_token %}
     <div class="row g-4">
 
-      <div class="col-lg-8">
+      <div class="col-lg-9">
 
         <!-- Partes del contrato -->
         <div class="form-card">
           <p class="section-title"><i class="lni lni-users me-2"></i>Partes del Contrato</p>
           <div class="row">
-            <div class="col-md-6 mb-3">
+            <div class="col-md-6 mb-3 d-none">
               <label class="form-label">Número de contrato</label>
               <input type="text" name="numero_contrato" class="form-control"
                 placeholder="CONT-2026-001"
@@ -129,8 +129,8 @@
         </div>
 
         <!-- Observaciones y documento -->
-        <div class="form-card">
-          <p class="section-title"><i class="lni lni-files me-2"></i>Documentación</p>
+        <details class="form-card">
+          <summary class="section-title" style="cursor:pointer"><i class="lni lni-files me-2"></i>Documento y observaciones (opcional)</summary>
           <div class="mb-3">
             <label class="form-label">Observaciones</label>
             <textarea name="observaciones" class="form-control" rows="3"
@@ -147,12 +147,12 @@
             <input type="file" name="documento" class="form-control" accept=".pdf,.doc,.docx">
             <small class="text-muted">PDF o Word. Sube uno nuevo para reemplazar el actual.</small>
           </div>
-        </div>
+        </details>
 
       </div>
 
       <!-- Columna derecha -->
-      <div class="col-lg-4">
+      <div class="col-lg-3">
 
         <!-- Preview comisión -->
         <div class="form-card">

@@ -9,7 +9,7 @@
 <style>
   .page-header { background:linear-gradient(135deg,var(--primary) 0%,#1a4fbb 100%); padding:32px 0 24px; margin-bottom:32px; }
   .page-header h1 { color:#fff; font-size:26px; font-weight:700; margin:0; }
-  .form-card { background:#fff; border-radius:14px; box-shadow:0 3px 20px rgba(0,0,0,.08); padding:32px; margin-bottom:24px; }
+  .form-card { background:#fff; border-radius:14px; box-shadow:0 3px 20px rgba(0,0,0,.08); padding:22px; margin-bottom:16px; }
   .section-title { font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--primary); border-bottom:2px solid var(--primary); padding-bottom:6px; margin-bottom:20px; }
   .form-label { font-weight:600; font-size:13px; color:#374151; margin-bottom:5px; }
   .form-control, .form-select { border-radius:8px; border:1.5px solid #e0e0e0; padding:10px 14px; font-size:14px; transition:border-color .2s; }
@@ -89,7 +89,7 @@
     <div class="row g-4">
 
       <!-- ── Columna izquierda ─────────────────────── -->
-      <div class="col-lg-8">
+      <div class="col-lg-9">
 
         <!-- Información general -->
         <div class="form-card" id="seccionInfoGeneral">
@@ -122,11 +122,14 @@
             </div>
           </div>
 
+          <details class="mb-2">
+            <summary class="form-label mb-3" style="cursor:pointer;color:var(--primary)">Agregar descripción (opcional)</summary>
           <div class="mb-3" id="campoDescripcion">
             <label class="form-label">Descripción</label>
             <textarea name="descripcion" class="form-control" rows="4"
               placeholder="Describe las características principales del inmueble...">{{ propiedad.descripcion|default:'' }}</textarea>
           </div>
+          </details>
         </div>
 
         <!-- Características -->
@@ -180,6 +183,9 @@
               <input type="text" name="sector" class="form-control" placeholder="La Carolina"
                 value="{{ propiedad.sector|default:'' }}">
             </div>
+            <details class="mb-2">
+              <summary class="form-label mb-3" style="cursor:pointer;color:var(--primary)">Coordenadas (opcional)</summary>
+            <div class="row">
             <div class="col-md-6 mb-3" id="campoLatitud">
               <label class="form-label">Latitud</label>
               <input type="number" name="latitud" class="form-control" step="0.000001"
@@ -190,17 +196,19 @@
               <input type="number" name="longitud" class="form-control" step="0.000001"
                 placeholder="-78.467834" value="{% if propiedad.longitud is not None %}{{ propiedad.longitud|stringformat:'.6f' }}{% endif %}">
             </div>
+            </div>
+            </details>
           </div>
         </div>
 
       </div>
 
       <!-- ── Columna derecha ──────────────────────── -->
-      <div class="col-lg-4">
+      <div class="col-lg-3">
 
         <!-- Imagen -->
-        <div class="form-card" id="seccionImagen">
-          <p class="section-title"><i class="lni lni-image me-2"></i>Imagen Principal</p>
+        <details class="form-card" id="seccionImagen">
+          <summary class="section-title" style="cursor:pointer"><i class="lni lni-image me-2"></i>Imagen (opcional)</summary>
           {% if propiedad.imagen_principal %}
             <img src="{{ propiedad.imagen_principal.url }}" class="img-fluid rounded mb-2"
               style="max-height:180px;object-fit:cover;width:100%;" alt="Imagen actual">
@@ -209,7 +217,7 @@
           <input type="file" name="imagen_principal" class="form-control" accept="image/*"
             onchange="previewImg(this)">
           <img id="imgPreview" class="img-preview w-100" alt="Vista previa">
-        </div>
+        </details>
 
         <!-- Agente -->
         <div class="form-card" id="seccionAgente">

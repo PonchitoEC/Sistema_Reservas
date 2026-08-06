@@ -7,7 +7,7 @@
 <style>
   .page-header { background:linear-gradient(135deg,var(--primary) 0%,#1a4fbb 100%); padding:32px 0 24px; margin-bottom:32px; }
   .page-header h1 { color:#fff; font-size:26px; font-weight:700; margin:0; }
-  .form-card { background:#fff; border-radius:14px; box-shadow:0 3px 20px rgba(0,0,0,.08); padding:32px; margin-bottom:24px; }
+  .form-card { background:#fff; border-radius:14px; box-shadow:0 3px 20px rgba(0,0,0,.08); padding:22px; margin-bottom:16px; }
   .section-title { font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--primary); border-bottom:2px solid var(--primary); padding-bottom:6px; margin-bottom:20px; }
   .form-label { font-weight:600; font-size:13px; color:#374151; margin-bottom:5px; }
   .form-control, .form-select { border-radius:8px; border:1.5px solid #e0e0e0; padding:10px 14px; font-size:14px; transition:border-color .2s; }
@@ -46,7 +46,7 @@
   <form method="POST" novalidate>
     {% csrf_token %}
     <div class="row g-4">
-      <div class="col-lg-8">
+      <div class="col-lg-9">
 
         <div class="form-card">
           <p class="section-title"><i class="lni lni-user me-2"></i>Datos Personales</p>
@@ -84,8 +84,8 @@
           </div>
         </div>
 
-        <div class="form-card">
-          <p class="section-title"><i class="lni lni-cog me-2"></i>Asignación y Estado</p>
+        <details class="form-card">
+          <summary class="section-title" style="cursor:pointer"><i class="lni lni-cog me-2"></i>Asignación y estado (opcional)</summary>
           <div class="row">
             <div class="col-md-6 mb-3">
               <label class="form-label">Estado</label>
@@ -107,11 +107,11 @@
               </select>
             </div>
           </div>
-        </div>
+        </details>
 
       </div>
 
-      <div class="col-lg-4">
+      <div class="col-lg-3">
         <div class="form-card">
           <button type="submit" class="btn primary-btn btn-guardar w-100 mb-2">
             <i class="lni lni-save me-2"></i>Guardar cambios
