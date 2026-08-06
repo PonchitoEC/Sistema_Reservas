@@ -15,3 +15,6 @@ whitenoise==6.7.0
 
 # Generación de facturas/comprobantes PDF en memoria
 reportlab==4.2.5
+
+# Cliente HTTPS para Brevo (Render Free bloquea los puertos SMTP)
+requests==2.33.1

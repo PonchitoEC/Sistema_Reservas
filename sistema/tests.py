@@ -354,6 +354,27 @@ class RequisitosAcademicosTests(TestCase):
         self.propiedad1.refresh_from_db()
         self.assertEqual(self.propiedad1.estado, 'vendida')
 
+    @override_settings(
+        BREVO_API_KEY='api-key-prueba',
+        BREVO_SENDER_EMAIL='remitente@example.com',
+        BREVO_SENDER_NAME='Inmobiliaria Prueba',
+    )
+    @patch('sistema.models.requests.post')
+    def test_brevo_envia_factura_pdf_por_https(self, post):
+        post.return_value.status_code = 201
+        contrato = self._firmar_contrato()
+        contrato.factura.refresh_from_db()
+
+        self.assertTrue(contrato.factura.correo_enviado)
+        post.assert_called_once()
+        llamada = post.call_args
+        self.assertEqual(llamada.args[0], 'https://api.brevo.com/v3/smtp/email')
+        self.assertEqual(llamada.kwargs['headers']['api-key'], 'api-key-prueba')
+        payload = llamada.kwargs['json']
+        self.assertEqual(payload['to'][0]['email'], self.comprador1_user.email)
+        self.assertTrue(payload['attachment'][0]['name'].endswith('.pdf'))
+        self.assertTrue(payload['attachment'][0]['content'])
+
     def test_reenvio_reutiliza_factura_existente(self):
         contrato = self._firmar_contrato()
         factura_pk = contrato.factura.pk

@@ -1,4 +1,5 @@
 import logging
+import base64
 import smtplib
 import socket
 from datetime import date
@@ -9,6 +10,7 @@ from django.contrib.auth.models import User
 from django.core.mail import EmailMessage
 from django.db import models, IntegrityError, transaction
 from django.utils import timezone
+import requests
 
 logger = logging.getLogger(__name__)
 
@@ -265,8 +267,9 @@ class ContratoVenta(models.Model):
             self._ultimo_error_email = 'El comprador no tiene un correo registrado.'
             return False
 
+        usa_brevo = bool(settings.BREVO_API_KEY)
         usa_smtp = settings.EMAIL_BACKEND == 'django.core.mail.backends.smtp.EmailBackend'
-        if usa_smtp and (not settings.EMAIL_HOST_USER or not settings.EMAIL_HOST_PASSWORD):
+        if not usa_brevo and usa_smtp and (not settings.EMAIL_HOST_USER or not settings.EMAIL_HOST_PASSWORD):
             logger.error('SMTP no configurado; no se puede enviar el contrato %s', self.numero_contrato)
             self._ultimo_error_email = 'Faltan las variables EMAIL_HOST_USER o EMAIL_HOST_PASSWORD en el entorno del servidor.'
             return False
@@ -290,18 +293,60 @@ class ContratoVenta(models.Model):
         )
 
         try:
-            correo = EmailMessage(
-                subject=asunto,
-                body=mensaje,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                to=[comprador_user.email],
-            )
-            correo.attach(
-                f'Factura-{factura.numero_factura}.pdf',
-                factura.generar_pdf(),
-                'application/pdf',
-            )
-            correo.send(fail_silently=False)
+            pdf = factura.generar_pdf()
+            if usa_brevo:
+                remitente = settings.BREVO_SENDER_EMAIL
+                if not remitente:
+                    self._ultimo_error_email = 'Falta BREVO_SENDER_EMAIL en Render.'
+                    return False
+                respuesta = requests.post(
+                    settings.BREVO_API_URL,
+                    headers={
+                        'accept': 'application/json',
+                        'api-key': settings.BREVO_API_KEY,
+                        'content-type': 'application/json',
+                    },
+                    json={
+                        'sender': {'name': settings.BREVO_SENDER_NAME, 'email': remitente},
+                        'to': [{
+                            'email': comprador_user.email,
+                            'name': comprador_user.get_full_name() or comprador_user.username,
+                        }],
+                        'replyTo': {'email': remitente, 'name': settings.BREVO_SENDER_NAME},
+                        'subject': asunto,
+                        'textContent': mensaje,
+                        'attachment': [{
+                            'content': base64.b64encode(pdf).decode('ascii'),
+                            'name': f'Factura-{factura.numero_factura}.pdf',
+                        }],
+                        'tags': ['factura-inmobiliaria'],
+                    },
+                    timeout=settings.BREVO_TIMEOUT,
+                )
+                if respuesta.status_code != 201:
+                    try:
+                        detalle = respuesta.json().get('message', '')
+                    except (ValueError, AttributeError):
+                        detalle = ''
+                    self._ultimo_error_email = (
+                        f'Brevo rechazó el envío ({respuesta.status_code}). '
+                        f'{detalle or "Revisa la API key y el remitente verificado."}'
+                    )
+                    logger.error('Brevo rechazo factura contrato=%s status=%s', self.numero_contrato, respuesta.status_code)
+                    return False
+            else:
+                correo = EmailMessage(
+                    subject=asunto,
+                    body=mensaje,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    to=[comprador_user.email],
+                )
+                correo.attach(
+                    f'Factura-{factura.numero_factura}.pdf',
+                    pdf,
+                    'application/pdf',
+                )
+                correo.send(fail_silently=False)
             factura.correo_enviado = True
             factura.fecha_envio_correo = timezone.now()
             factura.save(update_fields=['correo_enviado', 'fecha_envio_correo'])
@@ -313,6 +358,10 @@ class ContratoVenta(models.Model):
         except smtplib.SMTPRecipientsRefused:
             self._ultimo_error_email = 'El servidor rechazó el correo del comprador.'
             logger.exception('El servidor rechazo al destinatario %s', comprador_user.email)
+            return False
+        except requests.RequestException:
+            self._ultimo_error_email = 'Render no pudo conectarse con la API HTTPS de Brevo.'
+            logger.exception('Fallo de conexion con Brevo contrato=%s', self.numero_contrato)
             return False
         except (smtplib.SMTPConnectError, smtplib.SMTPServerDisconnected, socket.timeout, TimeoutError, OSError):
             self._ultimo_error_email = 'Render no pudo conectarse con Gmail. Revisa SMTP, puerto 587 y TLS.'

@@ -247,3 +247,11 @@ EMAIL_HOST_PASSWORD = ''.join(os.environ.get('EMAIL_HOST_PASSWORD', '').split())
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 # Evita que una falla de red/SMTP deje colgada una petición web.
 EMAIL_TIMEOUT = int(os.environ.get('EMAIL_TIMEOUT', 8))
+
+# En Render Free los puertos SMTP están bloqueados. Si BREVO_API_KEY está
+# configurada, las facturas se envían mediante la API HTTPS de Brevo.
+BREVO_API_KEY = os.environ.get('BREVO_API_KEY', '').strip()
+BREVO_API_URL = os.environ.get('BREVO_API_URL', 'https://api.brevo.com/v3/smtp/email')
+BREVO_SENDER_EMAIL = os.environ.get('BREVO_SENDER_EMAIL', EMAIL_HOST_USER).strip()
+BREVO_SENDER_NAME = os.environ.get('BREVO_SENDER_NAME', 'Conexión Inmobiliaria').strip()
+BREVO_TIMEOUT = int(os.environ.get('BREVO_TIMEOUT', 20))
