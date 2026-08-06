@@ -41,6 +41,7 @@
   <!--====== DataTables CSS (CDN) ======-->
   <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/dataTables.bootstrap5.min.css" />
   <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.bootstrap5.min.css" />
+  <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.bootstrap5.min.css" />
 
   <!--====== SweetAlert2 CSS (CDN) ======-->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" />
@@ -72,6 +73,32 @@
       position:fixed; left:18px; bottom:70px; z-index:1049; display:none;
       border-radius:999px; padding:7px 12px; background:#fef3c7; color:#92400e;
       box-shadow:0 4px 14px rgba(0,0,0,.12); font-size:12px; font-weight:700;
+    }
+    /* Barra compacta y adaptable de exportación de DataTables */
+    .dataTables_wrapper .dt-export-row,
+    .dataTables_wrapper .dt-buttons {
+      display:flex; flex-wrap:wrap; align-items:center; gap:6px;
+    }
+    .dataTables_wrapper .dt-buttons .btn {
+      width:auto !important; min-width:0 !important; margin:0 !important;
+      padding:6px 10px !important; border-radius:6px !important;
+      background:#fff !important; font-size:12px !important;
+      line-height:1.25 !important; font-weight:600 !important;
+      letter-spacing:normal !important; text-transform:none !important;
+      box-shadow:none !important;
+    }
+    .dataTables_wrapper .dt-buttons .btn-outline-secondary { color:#475569 !important; border-color:#cbd5e1 !important; }
+    .dataTables_wrapper .dt-buttons .btn-outline-success { color:#15803d !important; border-color:#86efac !important; }
+    .dataTables_wrapper .dt-buttons .btn-outline-danger { color:#dc2626 !important; border-color:#fca5a5 !important; }
+    .dataTables_wrapper .dt-buttons .btn-outline-primary { color:#155bd5 !important; border-color:#93c5fd !important; }
+    .dataTables_wrapper .dt-buttons .btn:hover { background:#f1f5f9 !important; }
+    .dataTables_wrapper .dataTables_length,
+    .dataTables_wrapper .dataTables_filter { margin:0 !important; }
+    .dataTables_wrapper .dataTables_filter label { display:flex; justify-content:flex-end; align-items:center; gap:6px; }
+    @media (max-width:575.98px) {
+      .dataTables_wrapper .dt-buttons .btn { flex:1 1 calc(33.333% - 6px); }
+      .dataTables_wrapper .dataTables_filter label { justify-content:flex-start; }
+      .dataTables_wrapper .dataTables_filter input { min-width:0; width:100% !important; }
     }
     /* Driver.js overrides */
     .driver-popover { border-radius: 12px !important; }
@@ -571,6 +598,14 @@
   <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
   <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
   <script src="https://cdn.datatables.net/responsive/2.5.0/js/responsive.bootstrap5.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
+  <script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
+  <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.bootstrap5.min.js"></script>
+  <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
+  <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.print.min.js"></script>
+  <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.colVis.min.js"></script>
 
   <!--====== SweetAlert2 (CDN) ======-->
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
@@ -719,7 +754,15 @@
         responsive: true,
         pageLength: 10,
         lengthMenu: [10, 25, 50, 100],
-        dom: '<"row align-items-center mb-3"<"col-sm-6"l><"col-sm-6 text-end"f>>rt<"row mt-3"<"col-sm-6"i><"col-sm-6"p>>',
+        dom: '<"dt-toolbar mb-3"<"dt-export-row"B><"row align-items-center g-2 mt-2"<"col-sm-6"l><"col-sm-6 text-sm-end"f>>>rt<"row mt-3"<"col-sm-6"i><"col-sm-6"p>>',
+        buttons: [
+          { extend: 'copyHtml5', text: '<i class="fa-regular fa-copy"></i> Copiar', className: 'btn btn-outline-secondary btn-sm', exportOptions: { columns: ':visible:not(.no-export)', stripHtml: true } },
+          { extend: 'csvHtml5', text: '<i class="fa-solid fa-file-csv"></i> CSV', className: 'btn btn-outline-secondary btn-sm', bom: true, exportOptions: { columns: ':visible:not(.no-export)', stripHtml: true } },
+          { extend: 'excelHtml5', text: '<i class="fa-regular fa-file-excel"></i> Excel', className: 'btn btn-outline-success btn-sm', exportOptions: { columns: ':visible:not(.no-export)', stripHtml: true } },
+          { extend: 'pdfHtml5', text: '<i class="fa-regular fa-file-pdf"></i> PDF', className: 'btn btn-outline-danger btn-sm', orientation: 'landscape', pageSize: 'A4', exportOptions: { columns: ':visible:not(.no-export)', stripHtml: true } },
+          { extend: 'print', text: '<i class="fa-solid fa-print"></i> Imprimir', className: 'btn btn-outline-primary btn-sm', exportOptions: { columns: ':visible:not(.no-export)', stripHtml: true } },
+          { extend: 'colvis', text: '<i class="fa-solid fa-table-columns"></i> Columnas', className: 'btn btn-outline-secondary btn-sm' }
+        ],
       });
 
       // ── jQuery Validate: mensajes en español ─────────
