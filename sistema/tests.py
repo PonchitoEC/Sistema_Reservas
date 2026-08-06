@@ -30,6 +30,16 @@ class PersistenciaSeguraTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertFalse(Propiedad.objects.filter(titulo='Propiedad inválida').exists())
 
+    def test_login_correcto_entrega_dashboard_sin_redireccion_http(self):
+        self.client.logout()
+        response = self.client.post(reverse('login'), {
+            'username': 'admin_guardado',
+            'password': 'password123',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'dashboard.html')
+        self.assertTrue(response.wsgi_request.user.is_authenticated)
+
     def test_agente_duplicado_no_deja_usuario_huerfano(self):
         existente = User.objects.create_user('existente_guardado', password='password123')
         AgenteInmobiliario.objects.create(

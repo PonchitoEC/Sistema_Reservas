@@ -281,6 +281,13 @@
 {% endblock %}
 
 {% block scripts %}
+<script>
+// Cuando el dashboard se entrega directamente tras autenticar, refleja su URL
+// sin provocar otra petición ni una redirección HTTP.
+if (window.location.pathname === '{% url "login" %}') {
+  window.history.replaceState({}, document.title, '{% url "dashboard" %}');
+}
+</script>
 {% if rol == 'administrador' or rol == 'agente' %}
 <script>
 $(function() {

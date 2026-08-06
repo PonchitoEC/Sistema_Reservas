@@ -93,9 +93,11 @@ def inicio(request):
 # LOGIN
 # ─────────────────────────────────────────────
 def vista_login(request):
-    # Si ya está autenticado redirige al dashboard
+    # Algunos proxies/navegadores administrados cierran la conexión al seguir
+    # el 302 posterior al login. Entregar el dashboard en la misma respuesta
+    # evita ese salto sin cambiar la sesión ni los permisos.
     if request.user.is_authenticated:
-        return redirect('dashboard')
+        return dashboard(request)
 
     if request.method == 'POST':
         username = request.POST.get('username', '').strip()
@@ -106,9 +108,10 @@ def vista_login(request):
         if user is not None:
             login(request, user)
             messages.success(request, f'Bienvenido, {user.get_full_name() or user.username}.')
-            # Redirige a la URL solicitada antes del login o al dashboard
-            siguiente = request.GET.get('next', 'dashboard')
-            return redirect(siguiente)
+            siguiente = request.GET.get('next', '')
+            if siguiente and siguiente not in {'dashboard', reverse('dashboard')}:
+                return redirect(siguiente)
+            return dashboard(request)
         else:
             messages.error(request, 'Usuario o contraseña incorrectos.')
 
