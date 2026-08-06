@@ -4,6 +4,8 @@ from . import views
 urlpatterns = [
     # ── Página pública ───────────────────────────────────
     path('', views.inicio, name='inicio'),
+    path('offline/', views.pwa_offline, name='pwa_offline'),
+    path('service-worker.js', views.pwa_service_worker, name='pwa_service_worker'),
 
     # ── Autenticación ────────────────────────────────────
     path('login/',    views.vista_login,    name='login'),

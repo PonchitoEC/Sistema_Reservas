@@ -20,6 +20,19 @@ from .decoradores import _obtener_rol as obtener_rol, rol_requerido
 from django.views.decorators.http import require_POST
 
 
+def pwa_offline(request):
+    """Pantalla pública mostrada por la PWA cuando no hay conexión."""
+    return render(request, 'offline.html')
+
+
+def pwa_service_worker(request):
+    """Sirve el worker desde la raíz para que pueda controlar todo el sitio."""
+    response = render(request, 'service-worker.js', content_type='application/javascript')
+    response['Service-Worker-Allowed'] = '/'
+    response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    return response
+
+
 def _parse_decimal(value):
     if value in (None, ''):
         return Decimal('0')

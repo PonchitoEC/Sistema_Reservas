@@ -1,0 +1,16 @@
+{% load static %}
+<!doctype html>
+<html lang="es"><head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#155bd5">
+  <title>Sin conexión — Conexión Inmobiliaria</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;font-family:system-ui,-apple-system,sans-serif;background:#f3f6fb;color:#1f2937;padding:24px}
+    main{max-width:440px;text-align:center;background:#fff;padding:38px;border-radius:18px;box-shadow:0 12px 40px rgba(15,23,42,.1)}img{width:96px;height:96px;border-radius:20px}h1{font-size:25px;margin:20px 0 8px}p{color:#64748b;line-height:1.55}button{border:0;border-radius:9px;background:#155bd5;color:#fff;padding:12px 22px;font-weight:700;cursor:pointer}
+  </style>
+</head><body><main>
+  <img src="{% static 'pwa/icon-192.png' %}" alt="Conexión Inmobiliaria">
+  <h1>Estás sin conexión</h1>
+  <p>Conéctate a internet para consultar o guardar propiedades, visitas, contratos y facturas.</p>
+  <button type="button" onclick="location.reload()">Volver a intentar</button>
+</main></body></html>

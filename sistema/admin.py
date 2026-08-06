@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User
-from .models import AgenteInmobiliario, Comprador, Propiedad, Visita, ContratoVenta, Factura
+from .models import AgenteInmobiliario, Comprador, Propiedad, Visita, ContratoVenta, Factura, OperacionOffline
 
 
 # ─────────────────────────────────────────────
@@ -29,6 +29,20 @@ class UserAdmin(BaseUserAdmin):
 # Volver a registrar User con el UserAdmin extendido
 admin.site.unregister(User)
 admin.site.register(User, UserAdmin)
+
+
+@admin.register(OperacionOffline)
+class OperacionOfflineAdmin(admin.ModelAdmin):
+    list_display = ('request_id', 'user', 'metodo', 'ruta', 'estado_http', 'procesado_en')
+    list_filter = ('metodo', 'estado_http', 'procesado_en')
+    search_fields = ('request_id', 'ruta', 'user__username')
+    readonly_fields = tuple(field.name for field in OperacionOffline._meta.fields)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
 
 
 # ─────────────────────────────────────────────

@@ -3,6 +3,7 @@ from datetime import timedelta
 import json
 from io import StringIO
 from unittest.mock import patch
+import uuid
 
 from django.contrib.auth.models import Group, User
 from django.core import mail
@@ -29,6 +30,28 @@ class PersistenciaSeguraTests(TestCase):
         })
         self.assertEqual(response.status_code, 200)
         self.assertFalse(Propiedad.objects.filter(titulo='Propiedad inválida').exists())
+
+    def test_reenvio_offline_no_duplica_el_registro(self):
+        request_id = str(uuid.uuid4())
+        datos = {
+            'titulo': 'Casa creada offline', 'tipo': 'casa',
+            'precio': '90000', 'area_m2': '100',
+            'dormitorios': '3', 'banos': '2', 'parqueaderos': '1',
+            'direccion': 'Calle Offline', 'ciudad': 'Quito',
+            'estado': 'disponible',
+        }
+        primera = self.client.post(
+            reverse('propiedad_crear'), datos,
+            HTTP_X_PWA_REQUEST_ID=request_id,
+        )
+        segunda = self.client.post(
+            reverse('propiedad_crear'), datos,
+            HTTP_X_PWA_REQUEST_ID=request_id,
+        )
+        self.assertEqual(primera.status_code, 302)
+        self.assertEqual(segunda.status_code, 302)
+        self.assertEqual(segunda['X-PWA-Replayed'], '1')
+        self.assertEqual(Propiedad.objects.filter(titulo='Casa creada offline').count(), 1)
 
     def test_login_correcto_entrega_dashboard_sin_redireccion_http(self):
         self.client.logout()
@@ -415,6 +438,22 @@ class FormulariosYContratosTests(TestCase):
         response = self.client.get(reverse('compradores_lista'))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'compradores_lista.html')
+
+    def test_pwa_manifiesto_worker_y_offline_disponibles(self):
+        pagina = self.client.get(reverse('dashboard'))
+        self.assertContains(pagina, 'pwa/manifest.webmanifest')
+        self.assertContains(pagina, 'service-worker.js')
+
+        worker = self.client.get(reverse('pwa_service_worker'))
+        self.assertEqual(worker.status_code, 200)
+        self.assertEqual(worker['Content-Type'], 'application/javascript')
+        self.assertEqual(worker['Service-Worker-Allowed'], '/')
+        self.assertContains(worker, "original.method !== 'GET'")
+        self.assertContains(worker, "sincronizar-formularios")
+
+        offline = self.client.get(reverse('pwa_offline'))
+        self.assertEqual(offline.status_code, 200)
+        self.assertContains(offline, 'Estás sin conexión')
 
     def test_contrato_save_convierte_precio_string_a_decimal(self):
         usuario = User.objects.create_user('agente', 'agente@example.com', 'password123')

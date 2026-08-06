@@ -596,3 +596,26 @@ class Factura(models.Model):
         )
         pdf.save()
         return buffer.getvalue()
+
+
+class OperacionOffline(models.Model):
+    """Registro idempotente de mutaciones reenviadas por la PWA."""
+
+    request_id = models.UUIDField(unique=True, db_index=True)
+    user = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL)
+    session_key = models.CharField(max_length=40, blank=True)
+    metodo = models.CharField(max_length=10)
+    ruta = models.CharField(max_length=500)
+    estado_http = models.PositiveSmallIntegerField()
+    ubicacion = models.CharField(max_length=500, blank=True)
+    content_type = models.CharField(max_length=100, blank=True)
+    cuerpo_respuesta = models.BinaryField(blank=True, default=bytes)
+    procesado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-procesado_en']
+        verbose_name = 'Operación offline sincronizada'
+        verbose_name_plural = 'Operaciones offline sincronizadas'
+
+    def __str__(self):
+        return f'{self.metodo} {self.ruta} ({self.request_id})'
