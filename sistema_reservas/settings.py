@@ -128,10 +128,15 @@ if DATABASE_URL:
     DATABASES = {
         'default': dj_database_url.config(
             default=DATABASE_URL,
-            conn_max_age=600,
+            # Los proxies PostgreSQL de servicios administrados pueden cerrar
+            # conexiones inactivas entre dos peticiones. No conservarlas evita
+            # que el POST de login deje al dashboard una conexión obsoleta.
+            conn_max_age=int(os.environ.get('DB_CONN_MAX_AGE', '0')),
             conn_health_checks=True,
         )
     }
+    DATABASES['default'].setdefault('OPTIONS', {})
+    DATABASES['default']['OPTIONS'].setdefault('connect_timeout', 10)
 elif os.environ.get('POSTGRES_DB'):
     DATABASES = {
         'default': {
